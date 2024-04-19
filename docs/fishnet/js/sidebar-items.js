@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ScriptType"],"fn":["minify_script"],"struct":["ScriptString"]};

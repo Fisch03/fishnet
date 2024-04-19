@@ -1,0 +1,221 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="fishnet is a opinionated, performant web framework for small projects and personal websites where htmx is a first class citizen."><title>fishnet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-2c208a72533b4dd0.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="fishnet" data-themes="" data-resource-suffix="" data-rustdoc-version="1.79.0-nightly (ccfcd950b 2024-04-15)" data-channel="nightly" data-search-js="search-ffac13a0df2b1870.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-e32f0c247825364d.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-c97aec732c613ca4.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-09095024cf37855e.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../fishnet/index.html">fishnet</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../fishnet/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings">Settings</a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">fishnet</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/fishnet/lib.rs.html#1-291">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>fishnet is a opinionated, performant web framework for small projects and personal websites where <a href="https://htmx.org/">htmx</a> is a first class citizen.</p>
+<h2 id="overview"><a class="doc-anchor" href="#overview">§</a>overview</h2>
+<p>fishnet aims to provide abstractions for splitting your page into components,
+while trying to stay as close as possible to the served content. no virtual dom, giant javascript bundles or complex build steps.
+in doing so, fishnet makes a few core assumptions about your project:</p>
+<ul>
+<li>the initially served content is <em>(mostly)</em> static. you can serve dynamically rendered content, but it comes with a few drawbacks (see <a href="#dynamic-components">the section on dynamic components</a>)</li>
+<li>you want to split your page into components, but don’t want to deal with the complexity of a full blown frontend framework.</li>
+<li>you want full control over the html, css and javascript that is served to the client.</li>
+<li>and most importantly: you are fine with using a library that probably isn’t going to get a lot of maintenance.</li>
+</ul>
+<h2 id="getting-started"><a class="doc-anchor" href="#getting-started">§</a>getting started</h2><h3 id="creating-a-page"><a class="doc-anchor" href="#creating-a-page">§</a>creating a page</h3>
+<p>to get started with fishnet, you need to create a new <a href="struct.Website.html" title="struct fishnet::Website"><code>Website</code></a> and add a <a href="struct.Page.html" title="struct fishnet::Page"><code>Page</code></a> to it.
+you can then use the <a href="macro.html.html" title="macro fishnet::html"><code>html!</code></a> (see the <a href="https://maud.lambda.xyz/">maud documentation</a> for more info) macro to create the content of the page.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>futures::future::FutureExt;
+<span class="kw">use </span>fishnet::{Website, Page, html};
+
+<span class="attr">#[tokio::main] </span><span class="comment">// feel free to use any async runtime you like
+</span><span class="kw">async fn </span>main() {
+    <span class="comment">// create a page
+    </span><span class="kw">let </span>home_page = Page::new(<span class="string">"home"</span>).with_body(|| <span class="kw">async </span>{
+        <span class="macro">html!</span> {
+            h1 { <span class="string">"Hello, World!" </span>}
+        }
+    }.boxed());
+
+    <span class="comment">// create a new website
+    </span><span class="kw">let </span>website = Website::new()
+        <span class="comment">// add a new 'home' page to the website, accessible at '/'
+        </span>.add_page(<span class="string">"/"</span>, home_page)
+        .<span class="kw">await</span>;
+
+   <span class="comment">// serve the website on port 8080
+    </span>website.serve(<span class="number">8080</span>).<span class="kw">await</span>;
+}</code></pre></div>
+<h4 id="using-components"><a class="doc-anchor" href="#using-components">§</a>using components</h4>
+<p>lets say you’ve added a button to your page:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>futures::future::FutureExt;
+<span class="kw">use </span>fishnet::{Page, html};
+
+Page::new(<span class="string">"example"</span>).with_body(|| <span class="kw">async </span>{
+   <span class="macro">html!</span> {
+      button onclick=<span class="string">"alert('hello!')" </span>{ <span class="string">"click me!" </span>}
+  }
+}.boxed());</code></pre></div>
+<p>you have now decided to reuse this button multiple times.
+you can achieve this by creating a new component:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>fishnet::{
+  Page,
+  <span class="comment">// the component prelude contains a lot of useful imports for creating components
+  </span>component::prelude::<span class="kw-2">*</span>,
+};
+
+<span class="kw">fn </span>my_awesome_button(label: <span class="kw-2">&amp;</span>str, alert: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw">impl </span>BuildableComponent {
+    <span class="comment">// convert the str references to owned strings
+    </span><span class="kw">let </span>state = (
+        label.to_string(),
+        <span class="macro">format!</span>(<span class="string">"alert('{}')"</span>, alert)
+    );
+
+    <span class="comment">// create a new 'button' component
+    </span><span class="macro">component!</span>(Button)
+    <span class="comment">//add our parameters as state to the component
+    </span>.with_state(Arc::new(state))
+    <span class="comment">// render the button
+    </span>.render(|state| <span class="kw">async move </span>{
+        <span class="macro">html!</span> {
+           button onclick=(state.<span class="number">1</span>) { (state.<span class="number">0</span>) }
+       }
+    }.boxed())
+}
+
+Page::new(<span class="string">"example"</span>).with_body(|| <span class="kw">async </span>{
+   <span class="comment">// use the component
+  </span><span class="macro">html!</span> {
+    (<span class="macro">c!</span>(my_awesome_button(<span class="string">"click me!"</span>, <span class="string">"hello!"</span>)))
+    (<span class="macro">c!</span>(my_awesome_button(<span class="string">"click me too!"</span>, <span class="string">"goodbye!"</span>)))
+  }
+}.boxed());</code></pre></div>
+<p>let’s break down what’s happening here:
+the <code>my_awesome_button</code> function is a function that constructs a new component with the contents of the button.
+since the render function may run multiple times, we need to convert the passed references to owned strings and <code>move</code> them into the closure.</p>
+<p>on the page itself, we use the <code>c!</code> macro to add the component to the page. this handles all the behind the scenes work of building and rendering the component, and caching it for future use.
+in this scenario, the <code>my_awesome_button</code> function and the components render function are both run exactly once over the lifetime of the whole page, even if the page is visited multiple times.
+(this may not always be the case, see <a href="#dynamic-components">the section on dynamic components</a> for more info.)</p>
+<h4 id="components-vs-html-in-functions-or-why-do-i-need-to-use-a-component-at-all"><a class="doc-anchor" href="#components-vs-html-in-functions-or-why-do-i-need-to-use-a-component-at-all">§</a>components vs html! in functions (or: why do i need to use a component at all?)</h4>
+<p>you might be wondering why using components is better than just something like this:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>futures::future::FutureExt;
+<span class="kw">use </span>fishnet::{Page, html, Markup};
+
+<span class="kw">fn </span>my_awesome_button(label: <span class="kw-2">&amp;</span>str, alert: <span class="kw-2">&amp;</span>str) -&gt; Markup {
+    <span class="macro">html!</span> {
+       button onclick={<span class="string">"alert("</span>(alert)<span class="string">")"</span>} { (label) }
+    }
+}
+
+Page::new(<span class="string">"example"</span>).with_body(|| <span class="kw">async </span>{
+   <span class="macro">html!</span> {
+      (my_awesome_button(<span class="string">"click me!"</span>, <span class="string">"hello!"</span>))
+      (my_awesome_button(<span class="string">"click me too!"</span>, <span class="string">"goodbye!"</span>))
+  }
+}.boxed());</code></pre></div>
+<p>while this is indeed much simpler, and might even be desirable for such a simple case,
+it comes with its downsides:</p>
+<ul>
+<li>the button is rerendered every time the page is visited, even if it doesn’t change. while this is not a problem for a simple button,
+it can become one for more complex scenarios. a component is static by default and usually only renders once even across page visits.</li>
+<li>there is no way to add additional functionality to the button.
+with a component, you can easily add a script, or a endpoint that will be queried when the button is clicked.</li>
+</ul>
+<p>this means, that in the end the tradeoff is up to the use-case. using a simple function as a component is usually fine for very small components,
+or functions that are used <em>within</em> other components. for anything bigger, or more complex, a component is usually the better choice.</p>
+<h3 id="dynamic-components"><a class="doc-anchor" href="#dynamic-components">§</a>dynamic components</h3>
+<p>the components you used until now were all statically rendered. this means, that their
+contents are fixed after the initial render. sometimes you want your components content to
+change each time the user visits the page however. this is where dynamic components come into
+play. imagine you want to add a (crude) page visit counter to your site. you can force it
+to be rerendered each page render using <a href="component/struct.Component.html#method.render_dynamic" title="method fishnet::component::Component::render_dynamic"><code>render_dynamic</code></a>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>fishnet::component::prelude::<span class="kw-2">*</span>;
+
+<span class="kw">fn </span>visit_counter() -&gt; <span class="kw">impl </span>BuildableComponent {
+    <span class="kw">let </span>count = Arc::new(Mutex::new(<span class="number">0</span>));
+    
+    <span class="macro">component!</span>(VisitCounter)
+        .with_state(count)
+        .render_dynamic(|count| <span class="kw">async move </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>count = count.lock().<span class="kw">await</span>;
+            <span class="kw-2">*</span>count += <span class="number">1</span>;
+            <span class="macro">html!</span> {
+                <span class="string">"you are visitor no. " </span>(count) <span class="string">"!"
+            </span>}
+        }.boxed())
+}</code></pre></div>
+<p>there is one important performance consideration to using dynamic components: <strong>using a dynamic component
+will force all its parents to also be rendered dynamically</strong>. this is usually not a big issue,
+but it should be taken into consideration nonetheless. this is also why <strong>you should never rely
+on your static components render function being called only once</strong>.</p>
+<h3 id="htmx"><a class="doc-anchor" href="#htmx">§</a>htmx</h3>
+<p>fishnet is built around supporting <a href="https://htmx.org/">htmx</a>. each component automagically gets
+assigned its very own api endpoint. you can add routes to it using the <a href="component/struct.Component.html#method.route" title="method fishnet::component::Component::route"><code>route</code></a> function</p>
+<p>the root url of the endpoint is then provided to you via the
+<a href="component/struct.ComponentState.html#method.endpoint" title="method fishnet::component::ComponentState::endpoint"><code>endpoint</code></a> function on the components state</p>
+<p>implementing the htmx quick start example is as simple as</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>fishnet::component::prelude::<span class="kw-2">*</span>;
+
+<span class="kw">fn </span>awesome_htmx_btn() -&gt; <span class="kw">impl </span>BuildableComponent {
+    <span class="kw">async fn </span>click_endpoint(state: Extension&lt;ComponentState&lt;()&gt;&gt;) -&gt; Markup {
+        <span class="macro">html!</span> { <span class="string">"hiiii!!" </span>}
+    }
+
+    <span class="macro">component!</span>(HtmxButton)
+        .route(<span class="string">"/"</span>, routing::post(click_endpoint))
+        .render(|state| <span class="kw">async move </span>{
+            <span class="macro">html!</span> {
+                button hx-post=(state.endpoint()) hx-swap=<span class="string">"outerHTML" </span>{
+                    <span class="string">"click me"
+                </span>}
+            }
+        }.boxed())
+}</code></pre></div>
+<p>as you can see, the components state also gets passed to the components routes as an axum
+<a href="https://docs.rs/axum/latest/axum/struct.Extension.html"><code>Extension</code></a></p>
+<p>of course these api endpoints are not restricted to being used with htmx. you can serve
+anything that can be made into an axum response!</p>
+<h3 id="styling"><a class="doc-anchor" href="#styling">§</a>styling</h3>
+<p>fishnet provides its own <a href="macro.css.html" title="macro fishnet::css"><code>css!</code></a> macro that you can use to style your components.
+it supports a slightly modified version of the normal css syntax that applies styles relative
+to your component:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>fishnet::component::prelude::<span class="kw-2">*</span>;
+
+<span class="kw">fn </span>styled_component() -&gt; <span class="kw">impl </span>BuildableComponent {
+    <span class="macro">component!</span>(StyledComponent)
+        .style(<span class="macro">css!</span> {
+            background-color: red;
+
+            &gt; div {
+                padding: <span class="number">10px</span>;
+            }
+             
+            @media (max-width: <span class="number">600px</span>) {
+                background-color: blue;
+
+                .some-child {
+                    display: none;
+                }
+            }
+        })
+        .render(|<span class="kw">_</span>| <span class="kw">async </span>{
+            <span class="macro">html!</span>{
+                <span class="comment">//whatever...
+            </span>}
+        }.boxed())
+}</code></pre></div>
+<p>there are two special things you can do in the css macro:</p>
+<ul>
+<li><strong>top level declarations</strong> - if a css declaration does not appear within a block, it is
+applied to the component itself (e.g. in the above example, the components <code>background-color</code>
+would be red). this also works within media queries</li>
+<li><strong>relative selectors</strong> - since all css is applied relative to the component, a selector like
+<code>&gt; div</code> is perfectly valid. it selects all the <code>div</code>s that are direct children of the
+component. this also means that a selector like <code>*</code> will only affect the components children.</li>
+</ul>
+<p>if you want to style a specific child component, its class name will always be derived from the
+type you put into the <a href="component/macro.component.html" title="macro fishnet::component::component"><code>component!</code></a> macro (e.g. “SomeChild” becomes
+“some-child”). this also means that conflicts can occur if you use the same name multiple
+times, choose your names wisely…</p>
+<h3 id="javascript"><a class="doc-anchor" href="#javascript">§</a>javascript</h3>
+<p>lastly, you can attach custom javascript to your components using
+<a href="component/struct.Component.html#method.add_script" title="method fishnet::component::Component::add_script"><code>add_script</code></a>. this can be both written
+<a href="js/enum.ScriptType.html#variant.Inline" title="variant fishnet::js::ScriptType::Inline"><code>Inline</code></a> or loaded from an
+<a href="js/enum.ScriptType.html#variant.External" title="variant fishnet::js::ScriptType::External"><code>External</code></a> file. All loaded scripts will be bundled into
+one and minified if you use the optional <code>minify-js</code> crate feature (note that this will use
+<a href="https://esbuild.github.io/">esbuild</a> internally, so you need to have <a href="https://go.dev/">go</a> installed on your system.)</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="component/index.html" title="mod fishnet::component">component</a></div><div class="desc docblock-short">reusable components for building web pages (aka the main thing)</div></li><li><div class="item-name"><a class="mod" href="css/index.html" title="mod fishnet::css">css</a></div><div class="desc docblock-short">data structures for dealing with css</div></li><li><div class="item-name"><a class="mod" href="js/index.html" title="mod fishnet::js">js</a></div><div class="desc docblock-short">data structures and functions for dealing with js</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.c.html" title="macro fishnet::c">c</a></div><div class="desc docblock-short">macro that lets you add components to the page.</div></li><li><div class="item-name"><a class="macro" href="macro.component.html" title="macro fishnet::component">component</a></div><div class="desc docblock-short">macro for creating a new component.</div></li><li><div class="item-name"><a class="macro" href="macro.css.html" title="macro fishnet::css">css</a></div><div class="desc docblock-short">macro for generating a <a href="css/struct.StyleFragment.html" title="struct fishnet::css::StyleFragment"><code>StyleFragment</code></a> from css.</div></li><li><div class="item-name"><a class="macro" href="macro.html.html" title="macro fishnet::html">html</a></div><div class="desc docblock-short">macro for generating <a href="type.Markup.html" title="type fishnet::Markup"><code>Markup</code></a> from html.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Page.html" title="struct fishnet::Page">Page</a></div><div class="desc docblock-short">A page represents a visitable route on the website.</div></li><li><div class="item-name"><a class="struct" href="struct.Website.html" title="struct fishnet::Website">Website</a></div><div class="desc docblock-short">A simple website builder. A Website consists of multiple <a href="struct.Page.html" title="struct fishnet::Page"><code>Page</code></a>s and can additionally serve static files.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Markup.html" title="type fishnet::Markup">Markup</a></div><div class="desc docblock-short">A block of markup is a string that does not need to be escaped.</div></li></ul></section></div></main></body></html>

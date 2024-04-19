@@ -1,0 +1,17 @@
+[workspace]
+members = [
+    "fishnet",
+    "fishnet-macros"
+]
+
+exclude = [
+    "docs"
+]
+
+resolver = "2"
+
+[workspace.package]
+authors = ["Lars Weide"]
+homepage = "https://fisch03.github.io/fishnet"
+repository = "https://github.com/fisch03/fishnet"
+edition = "2021"

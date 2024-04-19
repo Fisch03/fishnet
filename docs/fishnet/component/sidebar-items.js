@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["component"],"mod":["prelude"],"struct":["BuiltComponent","Component","ComponentBuildResult","ComponentGlobals","ComponentState"],"trait":["BuildableComponent"],"type":["ComponentRunner"]};

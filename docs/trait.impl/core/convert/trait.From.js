@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"fishnet":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/convert/trait.From.html\" title=\"trait core::convert::From\">From</a>&lt;&amp;<a class=\"enum\" href=\"fishnet/js/enum.ScriptType.html\" title=\"enum fishnet::js::ScriptType\">ScriptType</a>&gt; for <a class=\"struct\" href=\"fishnet/js/struct.ScriptString.html\" title=\"struct fishnet::js::ScriptString\">ScriptString</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

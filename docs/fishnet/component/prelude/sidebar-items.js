@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["c","css","html"],"mod":["routing"],"struct":["Arc","Extension","Mutex"],"trait":["FutureExt","Render"],"type":["Markup"]};
