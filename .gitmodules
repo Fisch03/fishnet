@@ -1,0 +1,3 @@
+[submodule "fishnet/htmx"]
+	path = fishnet/htmx
+	url = https://github.com/bigskysoftware/htmx
