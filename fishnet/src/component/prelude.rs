@@ -8,7 +8,7 @@ pub use crate::component::component;
 
 // html, js, css
 pub use crate::js::ScriptType;
-pub use fishnet_macros::css;
+pub use crate::{css, script, style};
 pub use maud::{html, Markup, Render};
 
 // boxing runner futures

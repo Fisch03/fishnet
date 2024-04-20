@@ -241,9 +241,9 @@ impl Parser {
                 Some(TokenTree::Ident(ref ident)) => condition.push_str(&ident.to_string()),
                 Some(TokenTree::Group(ref group)) => {
                     if group.delimiter() == Delimiter::Parenthesis {
-                        condition.push_str(" (");
+                        condition.push_str("(");
                         condition.push_str(&group.stream().to_string());
-                        condition.push_str(") ");
+                        condition.push_str(")");
                     } else {
                         self.advance();
                         break group.stream();
@@ -252,6 +252,7 @@ impl Parser {
                 Some(token) => abort!(token.span(), "unexpected token"),
                 None => abort_call_site!("unexpected end of input"),
             }
+            condition.push(' ');
             self.advance();
         };
 

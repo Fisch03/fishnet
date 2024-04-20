@@ -261,27 +261,12 @@
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A visitable page on the [`Website`](crate::website::Website).
 
 </span><span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>axum::{http::header, response::IntoResponse, routing::get, Extension, Router};
 <span class="kw">use </span>futures::future::{BoxFuture, FutureExt};
 <span class="kw">use </span>maud::{html, Markup, DOCTYPE};
-<span class="kw">use </span>std::any::TypeId;
 <span class="kw">use </span>std::collections::HashSet;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>tokio::sync::Mutex;
@@ -293,22 +278,14 @@
 <span class="kw">pub mod </span>render_context;
 <span class="kw">use </span>render_context::ComponentStore;
 
-<span class="kw">use </span>nanoid::nanoid;
-<span class="kw">const </span>ID_ALPHABET: [char; <span class="number">26</span>] = [
-    <span class="string">'a'</span>, <span class="string">'b'</span>, <span class="string">'c'</span>, <span class="string">'d'</span>, <span class="string">'e'</span>, <span class="string">'f'</span>, <span class="string">'g'</span>, <span class="string">'h'</span>, <span class="string">'i'</span>, <span class="string">'j'</span>, <span class="string">'k'</span>, <span class="string">'l'</span>, <span class="string">'m'</span>, <span class="string">'n'</span>, <span class="string">'o'</span>, <span class="string">'p'</span>, <span class="string">'q'</span>, <span class="string">'r'</span>, <span class="string">'s'</span>,
-    <span class="string">'t'</span>, <span class="string">'u'</span>, <span class="string">'v'</span>, <span class="string">'w'</span>, <span class="string">'x'</span>, <span class="string">'y'</span>, <span class="string">'z'</span>,
-];
-
 <span class="kw">pub struct </span>BuiltPage {
     <span class="attr">#[allow(dead_code)]
     </span>name: String,
-    <span class="attr">#[allow(dead_code)]
-    </span>id: String,
 
     head: Markup,
     body_renderer: Box&lt;<span class="kw">dyn </span>Fn() -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, Markup&gt; + Send + Sync&gt;,
 
-    <span class="kw">pub </span>used_components: HashSet&lt;TypeId&gt;,
+    <span class="kw">pub </span>used_globals: HashSet&lt;String&gt;,
     <span class="kw">pub </span>components: Arc&lt;Mutex&lt;ComponentStore&gt;&gt;,
 
     <span class="kw">pub </span>api_path: String,
@@ -345,12 +322,11 @@
 
         <span class="kw">let </span>built_page = <span class="self">Self </span>{
             name: page.name,
-            id: page.id,
 
             head: page.head,
             body_renderer: page.body_renderer,
 
-            used_components: HashSet::new(),
+            used_globals: HashSet::new(),
             components: Arc::new(Mutex::new(ComponentStore::new())),
 
             api_path,
@@ -396,18 +372,16 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>tasks = Vec::new();
         <span class="kw">let </span>span = <span class="macro">debug_span!</span>(<span class="string">"Page::task"</span>);
-        <span class="kw">for </span>type_id <span class="kw">in </span>result.new_components.drain() {
+        <span class="kw">for </span>id <span class="kw">in </span>result.new_components.drain() {
             <span class="kw">let </span>page = page.clone();
             tasks.push(tokio::spawn(
                 <span class="kw">async move </span>{
-                    <span class="kw">if </span>page.lock().<span class="kw">await</span>.used_components.contains(<span class="kw-2">&amp;</span>type_id) {
+                    <span class="kw">if </span>page.lock().<span class="kw">await</span>.used_globals.contains(<span class="kw-2">&amp;</span>id) {
                         <span class="kw">return</span>;
                     }
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(component_globals) =
-                        render_context::global_store().get(type_id).<span class="kw">await
-                    </span>{
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(component_globals) = render_context::global_store().get(id).<span class="kw">await </span>{
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(style) = <span class="kw-2">&amp;</span>component_globals.style {
-                            page.lock().<span class="kw">await</span>.stylesheet.push_str(style);
+                            page.lock().<span class="kw">await</span>.stylesheet.push_str(style.as_str());
                         }
 
                         <span class="kw">for </span>script <span class="kw">in </span><span class="kw-2">&amp;</span>component_globals.scripts {
@@ -490,7 +464,6 @@
 /// It manages rendering of the content, preparing [scripts](ScriptType) and running components.
 </span><span class="kw">pub struct </span>Page {
     name: String,
-    id: String,
 
     head: Markup,
     body_renderer: Box&lt;<span class="kw">dyn </span>Fn() -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, Markup&gt; + Send + Sync&gt;,
@@ -508,7 +481,6 @@
 
         <span class="self">Self </span>{
             name: name.into(),
-            id: <span class="macro">nanoid!</span>(<span class="number">5</span>, <span class="kw-2">&amp;</span>ID_ALPHABET),
 
             head: <span class="macro">html!</span> {},
             body_renderer: Box::new(|| {

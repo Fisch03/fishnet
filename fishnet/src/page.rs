@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use axum::{http::header, response::IntoResponse, routing::get, Extension, Router};
 use futures::future::{BoxFuture, FutureExt};
 use maud::{html, Markup, DOCTYPE};
-use std::any::TypeId;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -16,22 +15,14 @@ use crate::routes::APIRouter;
 pub mod render_context;
 use render_context::ComponentStore;
 
-use nanoid::nanoid;
-const ID_ALPHABET: [char; 26] = [
-    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
-    't', 'u', 'v', 'w', 'x', 'y', 'z',
-];
-
 pub struct BuiltPage {
     #[allow(dead_code)]
     name: String,
-    #[allow(dead_code)]
-    id: String,
 
     head: Markup,
     body_renderer: Box<dyn Fn() -> BoxFuture<'static, Markup> + Send + Sync>,
 
-    pub used_components: HashSet<TypeId>,
+    pub used_globals: HashSet<String>,
     pub components: Arc<Mutex<ComponentStore>>,
 
     pub api_path: String,
@@ -68,12 +59,11 @@ impl BuiltPage {
 
         let built_page = Self {
             name: page.name,
-            id: page.id,
 
             head: page.head,
             body_renderer: page.body_renderer,
 
-            used_components: HashSet::new(),
+            used_globals: HashSet::new(),
             components: Arc::new(Mutex::new(ComponentStore::new())),
 
             api_path,
@@ -119,18 +109,16 @@ impl BuiltPage {
 
         let mut tasks = Vec::new();
         let span = debug_span!("Page::task");
-        for type_id in result.new_components.drain() {
+        for id in result.new_components.drain() {
             let page = page.clone();
             tasks.push(tokio::spawn(
                 async move {
-                    if page.lock().await.used_components.contains(&type_id) {
+                    if page.lock().await.used_globals.contains(&id) {
                         return;
                     }
-                    if let Some(component_globals) =
-                        render_context::global_store().get(type_id).await
-                    {
+                    if let Some(component_globals) = render_context::global_store().get(id).await {
                         if let Some(style) = &component_globals.style {
-                            page.lock().await.stylesheet.push_str(style);
+                            page.lock().await.stylesheet.push_str(style.as_str());
                         }
 
                         for script in &component_globals.scripts {
@@ -213,7 +201,6 @@ impl BuiltPage {
 /// It manages rendering of the content, preparing [scripts](ScriptType) and running components.
 pub struct Page {
     name: String,
-    id: String,
 
     head: Markup,
     body_renderer: Box<dyn Fn() -> BoxFuture<'static, Markup> + Send + Sync>,
@@ -231,7 +218,6 @@ impl Page {
 
         Self {
             name: name.into(),
-            id: nanoid!(5, &ID_ALPHABET),
 
             head: html! {},
             body_renderer: Box::new(|| {

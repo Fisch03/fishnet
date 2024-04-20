@@ -28,7 +28,7 @@ fn test_css() {
 
         display: inline-block;
 
-        @media (max-width: 600px) and (min-width: 400px) {
+        @media screen and (max-width: 600px) and (min-width: 400px) {
             .test::first-child {
                 color: blue;
             }
@@ -39,10 +39,8 @@ fn test_css() {
         }
     };
 
-    println!("{}", &fragment.render("component"));
-
     assert_eq!(
-        fragment.render("component"),
+        fragment.render("component").as_str(),
         r".component {
     color: #f00000;
     display: inline-block;
@@ -66,7 +64,7 @@ fn test_css() {
     --var-name: 10px;
 }
 
-@media (max-width: 600px) and (min-width: 400px) {
+@media screen and (max-width: 600px) and (min-width: 400px) {
     .component .test::first-child {
         color: blue;
     }

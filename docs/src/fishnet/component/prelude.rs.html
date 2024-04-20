@@ -32,11 +32,11 @@
 
 <span class="comment">// html, js, css
 </span><span class="kw">pub use </span><span class="kw">crate</span>::js::ScriptType;
-<span class="kw">pub use </span>fishnet_macros::css;
+<span class="kw">pub use crate</span>::{css, script, style};
 <span class="kw">pub use </span>maud::{html, Markup, Render};
 
 <span class="comment">// boxing runner futures
-</span><span class="kw">pub use </span>futures::future::FutureExt;
+</span><span class="kw">pub use </span>futures::future::{BoxFuture, FutureExt};
 
 <span class="comment">// sharing state
 </span><span class="kw">pub use </span>std::sync::Arc;

@@ -1,14 +1,13 @@
 use axum::routing::Router;
 use futures::future::BoxFuture;
 use maud::{html, Markup};
-use std::any::TypeId;
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::OnceLock;
 use tokio::sync::Mutex;
 use tracing::{error, instrument, trace, warn};
 
-use crate::component::{BuildableComponent, BuiltComponent, ComponentGlobals};
+use crate::component::{BuildableComponent, BuiltComponent};
 use crate::page::BuiltPage;
 use crate::routes::ComponentRoute;
 
@@ -23,11 +22,8 @@ pub fn global_store() -> &'static GlobalStore {
     GLOBAL_STORE.get_or_init(|| GlobalStore::new())
 }
 
-type ComponentPathFragment = u64;
-type ComponentPath = Vec<ComponentPathFragment>;
-
 #[derive(Debug)]
-pub(crate) struct ComponentStore(HashMap<ComponentPath, BuiltComponent>);
+pub(crate) struct ComponentStore(HashMap<String, BuiltComponent>);
 
 impl ComponentStore {
     pub(crate) fn new() -> Self {
@@ -35,24 +31,38 @@ impl ComponentStore {
     }
 }
 
-pub(crate) struct GlobalStore(Mutex<HashMap<TypeId, Arc<ComponentGlobals>>>);
+#[derive(Debug)]
+#[doc(hidden)]
+pub struct GlobalStoreEntry {
+    pub scripts: Vec<crate::js::ScriptType>,
+    pub style: Option<crate::css::StyleString>,
+}
+
+pub struct GlobalStore(Mutex<HashMap<String, Arc<GlobalStoreEntry>>>);
 impl GlobalStore {
     pub fn new() -> Self {
         Self(Mutex::new(HashMap::new()))
     }
 
-    pub async fn add<F>(&self, component_type: TypeId, globals: F)
+    pub async fn add<F>(&self, id: &str, globals: F)
     where
-        F: FnOnce() -> ComponentGlobals,
+        F: FnOnce() -> GlobalStoreEntry,
     {
         let mut store = self.0.lock().await;
-        if !store.contains_key(&component_type) {
-            store.insert(component_type, Arc::new(globals()));
+        match store.entry(id.to_string()) {
+            Entry::Vacant(entry) => {
+                entry.insert(Arc::new(globals()));
+                let mut context = render_context().lock().await;
+                if context.is_some() {
+                    context.as_mut().unwrap().notify_global(&id)
+                }
+            }
+            Entry::Occupied(_) => {}
         }
     }
 
-    pub async fn get<'a>(&'a self, component_type: TypeId) -> Option<Arc<ComponentGlobals>> {
-        self.0.lock().await.get(&component_type).cloned()
+    pub(crate) async fn get<'a>(&'a self, id: String) -> Option<Arc<GlobalStoreEntry>> {
+        self.0.lock().await.get(&id).cloned()
     }
 }
 
@@ -60,8 +70,7 @@ struct RenderContext {
     base_route: String,
 
     components: Arc<Mutex<ComponentStore>>,
-    new_components: HashSet<TypeId>,
-    current_path: ComponentPath,
+    new_globals: HashSet<String>,
 
     static_state: bool,
     temporary_render_depth: usize,
@@ -75,14 +84,13 @@ impl RenderContext {
             base_route: base_route.to_string(),
 
             components,
-            current_path: Vec::new(),
 
             static_state: false,
             temporary_render_depth: 0,
 
             new_runners: Vec::new(),
             new_routers: Vec::new(),
-            new_components: HashSet::new(),
+            new_globals: HashSet::new(),
         }
     }
 
@@ -90,8 +98,12 @@ impl RenderContext {
         RenderResult {
             runners: self.new_runners,
             routers: self.new_routers,
-            new_components: self.new_components,
+            new_components: self.new_globals,
         }
+    }
+
+    fn notify_global(&mut self, id: &str) {
+        self.new_globals.insert(id.to_string());
     }
 }
 
@@ -104,7 +116,7 @@ impl RenderContext {
 pub struct RenderResult {
     pub runners: Vec<BoxFuture<'static, ()>>,
     pub routers: Vec<(ComponentRoute, Router)>,
-    pub new_components: HashSet<TypeId>,
+    pub new_components: HashSet<String>,
 }
 
 /// Enter a page render context.
@@ -146,7 +158,7 @@ pub(crate) async fn exit_page() -> RenderResult {
 /// * `context_id` - A unique identifier for the render. This should be kept consistent for the same component across renders.
 /// * `lazy_component` - A closure that returns the component to render. It will only be called if the component is not already rendered for the current page.
 #[instrument(name = "c", level = "debug", skip_all)]
-pub async fn render_component<F, C>(context_id: u64, lazy_component: F) -> Markup
+pub async fn render_component<F, C>(context_id: &str, lazy_component: F) -> Markup
 where
     F: FnOnce() -> C,
     C: BuildableComponent,
@@ -157,16 +169,20 @@ where
             context_id,
             "tried to add a component while no page is being rendered"
         );
-        //TODO: only show this in debug mode
-        return html! { "rendering failed for context " (context_id) ": no page is being rendered" };
+        #[cfg(debug_assertions)]
+        {
+            return html! { "rendering failed for context " (context_id) ": no page is being rendered" };
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            return html! {};
+        }
     }
     let mut context = context_guard.as_mut().unwrap();
     let mut components_guard = context.components.lock().await;
 
-    context.current_path.push(context_id);
-
     let render;
-    let existing_component = components_guard.0.get(&context.current_path);
+    let existing_component = components_guard.0.get(&context_id.to_string());
     if existing_component.is_some() {
         let component = existing_component.unwrap().clone(); //TODO: avoid this clone somehow?
 
@@ -184,10 +200,6 @@ where
             );
             return html! { "rendering failed for context " (context_id) ": page render exited" };
         }
-
-        context = context_guard.as_mut().unwrap();
-
-        context.current_path.pop();
     } else {
         let base_route = context.base_route.clone();
 
@@ -214,10 +226,6 @@ where
 
         context.static_state &= !new_component.built_component.is_dynamic();
 
-        context
-            .new_components
-            .insert(new_component.built_component.type_id());
-
         if let Some(router) = new_component.router {
             context.new_routers.push(router)
         }
@@ -228,10 +236,8 @@ where
         if !context.temporary_render_depth > 0 {
             components_guard
                 .0
-                .insert(context.current_path.clone(), new_component.built_component);
+                .insert(context_id.to_string(), new_component.built_component);
         }
-
-        context.current_path.pop();
     }
 
     render
@@ -282,12 +288,70 @@ pub(crate) async fn exit_temporary_render() -> bool {
     }
 }
 
-#[allow(unused_imports)]
-pub use const_random::const_random as const_contextid;
+/// add [`css`](crate::css!) to the page from outside a component.
+///
+/// this is helpful for adding styling to functions that just return [`Markup`](crate::Markup).
+/// you have to call this from within a page render or the css will not be added to the page.
+///
+/// ### usage
+/// ```rust
+/// use fishnet::{style, html, Markup, css};
+///
+/// async fn render_something() -> Markup {
+///     style!("my_class", css!{
+///         color: red;
+///     });
+///     
+///     html!{
+///         div class="my_class" {
+///             "hello world!"
+///         }
+///     }
+/// }
+#[macro_export]
+macro_rules! style {
+    ($tl_class: literal, $css:expr) => {{
+        $crate::global_store()
+            .add($crate::const_nanoid!(10), || $crate::GlobalStoreEntry {
+                scripts: Vec::new(),
+                style: Some($css.render($tl_class)),
+            })
+            .await;
+    }};
+}
 
-//TODO: global css/js macro.
+/// add js to the page from outside a component.
+///
+/// this is helpful for adding styling to functions that just return [`Markup`](crate::Markup).
+/// you have to call this from within a page render or the js will not be added to the page.
+///
+/// ### usage
+/// ```rust
+/// use fishnet::{script, html, Markup};
+/// async fn render_something() -> Markup {
+///     script!(r#"
+///         console.log("hello from javascript!");
+///     "#);
+///     
+///     html!{
+///         div class="my_class" {
+///             "hello from html!"
+///         }
+///     }
+/// }
+#[macro_export]
+macro_rules! script {
+    ($js:literal) => {{
+        $crate::global_store()
+            .add($crate::const_nanoid!(10), || $crate::GlobalStoreEntry {
+                scripts: vec![$crate::js::ScriptType::Inline($js)],
+                style: None,
+            })
+            .await;
+    }};
+}
 
-/// macro that lets you add components to the page.
+/// add components to the page.
 ///
 /// This is done by wrapping the component in a `c!` macro. The component will then be
 /// automatically built and rendered when needed.
@@ -303,11 +367,16 @@ pub use const_random::const_random as const_contextid;
 ///      }.boxed()))
 /// }.boxed());
 /// ```
+///
+/// # calling from outside a page render
+/// you have to call this from within a page render or it will not work.
+/// if you are in debug mode it will render out an error message containing the associated context id.
+/// in release mode it will just render to nothing.
 #[macro_export]
 macro_rules! c {
     ($component:expr) => {{
         let component = || $component;
 
-        $crate::render_component($crate::const_contextid!(u64), component).await
+        $crate::render_component($crate::const_nanoid!(10), component).await
     }};
 }

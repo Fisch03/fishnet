@@ -36,7 +36,20 @@ impl StyleFragment {
     }
 
     /// render the [`StyleFragment`] relative to the passed in `toplevel_class`.
-    pub fn render(&self, toplevel_class: &str) -> String {
-        self.0.to_string().replace("&", toplevel_class)
+    pub fn render(&self, toplevel_class: &str) -> StyleString {
+        StyleString(self.0.to_string().replace("&", toplevel_class))
+    }
+}
+
+/// string representation of a rendered [`StyleFragment`].
+#[derive(Debug, Clone)]
+pub struct StyleString(String);
+
+impl StyleString {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+    pub fn consume(self) -> String {
+        self.0
     }
 }

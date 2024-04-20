@@ -114,14 +114,15 @@
 //! }.boxed());
 //! ```
 //! while this is indeed much simpler, and might even be desirable for such a simple case,
-//! it comes with its downsides:
-//! - the button is rerendered every time the page is visited, even if it doesn't change. while this is not a problem for a simple button,
-//!   it can become one for more complex scenarios. a component is static by default and usually only renders once even across page visits.
-//! - there is no way to add additional functionality to the button.
-//!   with a component, you can easily add a script, or a endpoint that will be queried when the button is clicked.
-//!
-//! this means, that in the end the tradeoff is up to the use-case. using a simple function as a component is usually fine for very small components,
-//! or functions that are used *within* other components. for anything bigger, or more complex, a component is usually the better choice.
+//! you lose out to three things you get from using a component:
+//! - [api routes](#htmx) - each component gets its own api route, which can be used for serving dynamic content or handling form submissions.
+//! - cached rendering - (static) components are only rendered once and then cached. using a
+//! function, you leave the caching up to the parent component. if you use a function at the top level it gets rerendered on every page visit.
+//! - [state](#dynamic-components) - components can have state, which can be used to store data over the lifetime of the component.
+//!  
+//! this means, that in the end the tradeoff is up to the use-case. using a simple function as a component is usually fine (and even recommended!) for the smaller parts of your page.
+//! because of this, fishnet also provides the [`style!`] and [`script!`] macros for adding component independent css and javascript to your functions.
+//! these work mostly identical to their [component counterparts](#styling)
 //!
 //! ## dynamic components
 //! the components you used until now were all statically rendered. this means, that their
@@ -246,7 +247,7 @@ mod routes;
 
 mod page;
 #[doc(hidden)]
-pub use page::render_context::{const_contextid, render_component};
+pub use page::render_context::{global_store, render_component, GlobalStoreEntry};
 pub use page::Page;
 
 mod website;
@@ -284,8 +285,14 @@ pub mod js;
 /// and `*` will select all children of the root class
 pub use fishnet_macros::css;
 
+#[doc(hidden)]
+pub use fishnet_macros::const_nanoid;
+
 /// macro for generating [`Markup`] from html.
 ///
-/// this is just a reexport of the `html!` macro from the [maud](https://maud.lambda.xyz/) crate
+/// this is just a reexport of the `html!` macro from the [maud](https://maud.lambda.xyz/) crate.
+///
+/// **note:** due to the way this macro works, you will still need to add maud as a dependency to your project.
+/// it's just here for convenience.
 pub use maud::html;
 pub use maud::Markup;

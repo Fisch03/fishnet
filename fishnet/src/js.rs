@@ -15,7 +15,9 @@ pub enum ScriptType {
 }
 
 /// string representation of a script
+#[derive(Debug, Clone)]
 pub struct ScriptString(String);
+
 impl ScriptString {
     pub fn as_str(&self) -> &str {
         &self.0

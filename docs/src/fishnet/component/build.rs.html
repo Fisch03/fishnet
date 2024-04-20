@@ -222,38 +222,27 @@
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>axum::{Extension, Router};
 <span class="kw">use </span>futures::future::{BoxFuture, FutureExt};
 <span class="kw">use </span>maud::{html, Markup};
-<span class="kw">use </span>std::any::TypeId;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>tracing::{debug, instrument, trace};
 
 <span class="kw">use super</span>::{
-    render::{ComponentStyle, ContentType, StatefulContentRenderer},
+    render::{ContentType, StatefulContentRenderer},
     Component, ComponentRoute, ComponentState, HasRenderer,
 };
-<span class="kw">use </span><span class="kw">crate</span>::js::ScriptType;
+<span class="kw">use </span><span class="kw">crate</span>::css;
 <span class="kw">use </span><span class="kw">crate</span>::page::render_context;
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>BuiltComponent {
-    type_id: TypeId,
-
     <span class="attr">#[allow(dead_code)]
     </span>name: String,
-    <span class="attr">#[allow(dead_code)]
-    </span>id: String,
+    id: String,
+
+    class_name: String,
 
     content: Arc&lt;ContentType&gt;,
 }
@@ -265,11 +254,6 @@
     <span class="kw">pub </span>router: <span class="prelude-ty">Option</span>&lt;(ComponentRoute, Router)&gt;,
 }
 
-<span class="kw">pub struct </span>ComponentGlobals {
-    <span class="kw">pub </span>scripts: Vec&lt;ScriptType&gt;,
-    <span class="kw">pub </span>style: <span class="prelude-ty">Option</span>&lt;ComponentStyle&gt;,
-}
-
 <span class="kw">impl </span>BuiltComponent {
     <span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
         <span class="kw-2">&amp;</span><span class="self">self</span>.name
@@ -279,13 +263,9 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.id
     }
 
-    <span class="kw">pub fn </span>type_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TypeId {
-        <span class="self">self</span>.type_id
-    }
-
     <span class="kw">pub async fn </span>render(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Markup {
         <span class="macro">html!</span> {
-            div class=(<span class="self">self</span>.name) { (<span class="self">self</span>.content.render().<span class="kw">await</span>) }
+            div class=(<span class="self">self</span>.class_name) { (<span class="self">self</span>.content.render().<span class="kw">await</span>) }
         }
     }
 
@@ -353,10 +333,12 @@
         }
 
         <span class="macro">trace!</span>(<span class="string">"rendering component style"</span>);
-        <span class="kw">let </span>style = <span class="self">self</span>.style.map(|style| style.render(<span class="kw-2">&amp;</span><span class="self">self</span>.name));
+
+        <span class="kw">let </span>class_name = css::pascal_to_kebab(<span class="kw-2">&amp;</span><span class="self">self</span>.name);
+        <span class="kw">let </span>style = <span class="self">self</span>.style.map(|style| style.render(<span class="kw-2">&amp;</span>class_name));
 
         render_context::global_store()
-            .add(<span class="self">self</span>.type_id, || ComponentGlobals {
+            .add(<span class="kw-2">&amp;</span><span class="self">self</span>.id, || render_context::GlobalStoreEntry {
                 scripts: <span class="self">self</span>.scripts,
                 style,
             })
@@ -365,9 +347,9 @@
         <span class="macro">debug!</span>(<span class="string">"built component"</span>);
         ComponentBuildResult {
             built_component: BuiltComponent {
-                type_id: <span class="self">self</span>.type_id,
                 name: <span class="self">self</span>.name,
                 id: <span class="self">self</span>.id,
+                class_name,
                 content: Arc::new(content),
             },
             runner,

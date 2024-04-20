@@ -307,17 +307,89 @@
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>axum::routing::Router;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>maud::{html, Markup};
-<span class="kw">use </span>std::any::TypeId;
-<span class="kw">use </span>std::collections::{HashMap, HashSet};
+<span class="kw">use </span>std::collections::{hash_map::Entry, HashMap, HashSet};
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::sync::OnceLock;
 <span class="kw">use </span>tokio::sync::Mutex;
 <span class="kw">use </span>tracing::{error, instrument, trace, warn};
 
-<span class="kw">use </span><span class="kw">crate</span>::component::{BuildableComponent, BuiltComponent, ComponentGlobals};
+<span class="kw">use </span><span class="kw">crate</span>::component::{BuildableComponent, BuiltComponent};
 <span class="kw">use </span><span class="kw">crate</span>::page::BuiltPage;
 <span class="kw">use </span><span class="kw">crate</span>::routes::ComponentRoute;
 
@@ -326,16 +398,14 @@
     RENDER_CONTEXT.get_or_init(|| Mutex::new(<span class="prelude-val">None</span>))
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>global_store() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>GlobalStore {
+<span class="attr">#[doc(hidden)]
+</span><span class="kw">pub fn </span>global_store() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>GlobalStore {
     <span class="kw">static </span>GLOBAL_STORE: OnceLock&lt;GlobalStore&gt; = OnceLock::new();
     GLOBAL_STORE.get_or_init(|| GlobalStore::new())
 }
 
-<span class="kw">type </span>ComponentPathFragment = u64;
-<span class="kw">type </span>ComponentPath = Vec&lt;ComponentPathFragment&gt;;
-
 <span class="attr">#[derive(Debug)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ComponentStore(HashMap&lt;ComponentPath, BuiltComponent&gt;);
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ComponentStore(HashMap&lt;String, BuiltComponent&gt;);
 
 <span class="kw">impl </span>ComponentStore {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
@@ -343,24 +413,38 @@
     }
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GlobalStore(Mutex&lt;HashMap&lt;TypeId, Arc&lt;ComponentGlobals&gt;&gt;&gt;);
+<span class="attr">#[derive(Debug)]
+#[doc(hidden)]
+</span><span class="kw">pub struct </span>GlobalStoreEntry {
+    <span class="kw">pub </span>scripts: Vec&lt;<span class="kw">crate</span>::js::ScriptType&gt;,
+    <span class="kw">pub </span>style: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::css::StyleString&gt;,
+}
+
+<span class="kw">pub struct </span>GlobalStore(Mutex&lt;HashMap&lt;String, Arc&lt;GlobalStoreEntry&gt;&gt;&gt;);
 <span class="kw">impl </span>GlobalStore {
     <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(Mutex::new(HashMap::new()))
     }
 
-    <span class="kw">pub async fn </span>add&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, component_type: TypeId, globals: F)
+    <span class="kw">pub async fn </span>add&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str, globals: F)
     <span class="kw">where
-        </span>F: FnOnce() -&gt; ComponentGlobals,
+        </span>F: FnOnce() -&gt; GlobalStoreEntry,
     {
         <span class="kw">let </span><span class="kw-2">mut </span>store = <span class="self">self</span>.<span class="number">0</span>.lock().<span class="kw">await</span>;
-        <span class="kw">if </span>!store.contains_key(<span class="kw-2">&amp;</span>component_type) {
-            store.insert(component_type, Arc::new(globals()));
+        <span class="kw">match </span>store.entry(id.to_string()) {
+            Entry::Vacant(entry) =&gt; {
+                entry.insert(Arc::new(globals()));
+                <span class="kw">let </span><span class="kw-2">mut </span>context = render_context().lock().<span class="kw">await</span>;
+                <span class="kw">if </span>context.is_some() {
+                    context.as_mut().unwrap().notify_global(<span class="kw-2">&amp;</span>id)
+                }
+            }
+            Entry::Occupied(<span class="kw">_</span>) =&gt; {}
         }
     }
 
-    <span class="kw">pub async fn </span>get&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, component_type: TypeId) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;ComponentGlobals&gt;&gt; {
-        <span class="self">self</span>.<span class="number">0</span>.lock().<span class="kw">await</span>.get(<span class="kw-2">&amp;</span>component_type).cloned()
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>get&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, id: String) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;GlobalStoreEntry&gt;&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.lock().<span class="kw">await</span>.get(<span class="kw-2">&amp;</span>id).cloned()
     }
 }
 
@@ -368,8 +452,7 @@
     base_route: String,
 
     components: Arc&lt;Mutex&lt;ComponentStore&gt;&gt;,
-    new_components: HashSet&lt;TypeId&gt;,
-    current_path: ComponentPath,
+    new_globals: HashSet&lt;String&gt;,
 
     static_state: bool,
     temporary_render_depth: usize,
@@ -383,14 +466,13 @@
             base_route: base_route.to_string(),
 
             components,
-            current_path: Vec::new(),
 
             static_state: <span class="bool-val">false</span>,
             temporary_render_depth: <span class="number">0</span>,
 
             new_runners: Vec::new(),
             new_routers: Vec::new(),
-            new_components: HashSet::new(),
+            new_globals: HashSet::new(),
         }
     }
 
@@ -398,8 +480,12 @@
         RenderResult {
             runners: <span class="self">self</span>.new_runners,
             routers: <span class="self">self</span>.new_routers,
-            new_components: <span class="self">self</span>.new_components,
+            new_components: <span class="self">self</span>.new_globals,
         }
+    }
+
+    <span class="kw">fn </span>notify_global(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str) {
+        <span class="self">self</span>.new_globals.insert(id.to_string());
     }
 }
 
@@ -412,7 +498,7 @@
 </span><span class="kw">pub struct </span>RenderResult {
     <span class="kw">pub </span>runners: Vec&lt;BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;&gt;,
     <span class="kw">pub </span>routers: Vec&lt;(ComponentRoute, Router)&gt;,
-    <span class="kw">pub </span>new_components: HashSet&lt;TypeId&gt;,
+    <span class="kw">pub </span>new_components: HashSet&lt;String&gt;,
 }
 
 <span class="doccomment">/// Enter a page render context.
@@ -454,7 +540,7 @@
 /// * `context_id` - A unique identifier for the render. This should be kept consistent for the same component across renders.
 /// * `lazy_component` - A closure that returns the component to render. It will only be called if the component is not already rendered for the current page.
 </span><span class="attr">#[instrument(name = <span class="string">"c"</span>, level = <span class="string">"debug"</span>, skip_all)]
-</span><span class="kw">pub async fn </span>render_component&lt;F, C&gt;(context_id: u64, lazy_component: F) -&gt; Markup
+</span><span class="kw">pub async fn </span>render_component&lt;F, C&gt;(context_id: <span class="kw-2">&amp;</span>str, lazy_component: F) -&gt; Markup
 <span class="kw">where
     </span>F: FnOnce() -&gt; C,
     C: BuildableComponent,
@@ -465,16 +551,20 @@
             context_id,
             <span class="string">"tried to add a component while no page is being rendered"
         </span>);
-        <span class="comment">//TODO: only show this in debug mode
-        </span><span class="kw">return </span><span class="macro">html!</span> { <span class="string">"rendering failed for context " </span>(context_id) <span class="string">": no page is being rendered" </span>};
+        <span class="attr">#[cfg(debug_assertions)]
+        </span>{
+            <span class="kw">return </span><span class="macro">html!</span> { <span class="string">"rendering failed for context " </span>(context_id) <span class="string">": no page is being rendered" </span>};
+        }
+        <span class="attr">#[cfg(not(debug_assertions))]
+        </span>{
+            <span class="kw">return </span><span class="macro">html!</span> {};
+        }
     }
     <span class="kw">let </span><span class="kw-2">mut </span>context = context_guard.as_mut().unwrap();
     <span class="kw">let </span><span class="kw-2">mut </span>components_guard = context.components.lock().<span class="kw">await</span>;
 
-    context.current_path.push(context_id);
-
     <span class="kw">let </span>render;
-    <span class="kw">let </span>existing_component = components_guard.<span class="number">0</span>.get(<span class="kw-2">&amp;</span>context.current_path);
+    <span class="kw">let </span>existing_component = components_guard.<span class="number">0</span>.get(<span class="kw-2">&amp;</span>context_id.to_string());
     <span class="kw">if </span>existing_component.is_some() {
         <span class="kw">let </span>component = existing_component.unwrap().clone(); <span class="comment">//TODO: avoid this clone somehow?
 
@@ -492,10 +582,6 @@
             </span>);
             <span class="kw">return </span><span class="macro">html!</span> { <span class="string">"rendering failed for context " </span>(context_id) <span class="string">": page render exited" </span>};
         }
-
-        context = context_guard.as_mut().unwrap();
-
-        context.current_path.pop();
     } <span class="kw">else </span>{
         <span class="kw">let </span>base_route = context.base_route.clone();
 
@@ -522,10 +608,6 @@
 
         context.static_state &amp;= !new_component.built_component.is_dynamic();
 
-        context
-            .new_components
-            .insert(new_component.built_component.type_id());
-
         <span class="kw">if let </span><span class="prelude-val">Some</span>(router) = new_component.router {
             context.new_routers.push(router)
         }
@@ -536,10 +618,8 @@
         <span class="kw">if </span>!context.temporary_render_depth &gt; <span class="number">0 </span>{
             components_guard
                 .<span class="number">0
-                </span>.insert(context.current_path.clone(), new_component.built_component);
+                </span>.insert(context_id.to_string(), new_component.built_component);
         }
-
-        context.current_path.pop();
     }
 
     render
@@ -590,9 +670,70 @@
     </span>}
 }
 
-<span class="attr">#[allow(unused_imports)]
-</span><span class="kw">pub use </span>const_random::const_random <span class="kw">as </span>const_contextid;
-<span class="doccomment">/// macro that lets you add components to the page.
+<span class="doccomment">/// add [`css`](crate::css!) to the page from outside a component.
+///
+/// this is helpful for adding styling to functions that just return [`Markup`](crate::Markup).
+/// you have to call this from within a page render or the css will not be added to the page.
+///
+/// ### usage
+/// ```rust
+/// use fishnet::{style, html, Markup, css};
+///
+/// async fn render_something() -&gt; Markup {
+///     style!("my_class", css!{
+///         color: red;
+///     });
+///     
+///     html!{
+///         div class="my_class" {
+///             "hello world!"
+///         }
+///     }
+/// }
+</span><span class="attr">#[macro_export]
+</span><span class="macro">macro_rules!</span> style {
+    (<span class="macro-nonterminal">$tl_class</span>: literal, <span class="macro-nonterminal">$css</span>:expr) =&gt; {{
+        <span class="macro-nonterminal">$crate::global_store</span>()
+            .add(<span class="macro-nonterminal">$</span><span class="macro">crate::const_nanoid!</span>(<span class="number">10</span>), || <span class="macro-nonterminal">$crate::GlobalStoreEntry </span>{
+                scripts: Vec::new(),
+                style: <span class="prelude-val">Some</span>(<span class="macro-nonterminal">$css</span>.render(<span class="macro-nonterminal">$tl_class</span>)),
+            })
+            .<span class="kw">await</span>;
+    }};
+}
+
+<span class="doccomment">/// add js to the page from outside a component.
+///
+/// this is helpful for adding styling to functions that just return [`Markup`](crate::Markup).
+/// you have to call this from within a page render or the js will not be added to the page.
+///
+/// ### usage
+/// ```rust
+/// use fishnet::{script, html, Markup};
+/// async fn render_something() -&gt; Markup {
+///     script!(r#"
+///         console.log("hello from javascript!");
+///     "#);
+///     
+///     html!{
+///         div class="my_class" {
+///             "hello from html!"
+///         }
+///     }
+/// }
+</span><span class="attr">#[macro_export]
+</span><span class="macro">macro_rules!</span> script {
+    (<span class="macro-nonterminal">$js</span>:literal) =&gt; {{
+        <span class="macro-nonterminal">$crate::global_store</span>()
+            .add(<span class="macro-nonterminal">$</span><span class="macro">crate::const_nanoid!</span>(<span class="number">10</span>), || <span class="macro-nonterminal">$crate::GlobalStoreEntry </span>{
+                scripts: <span class="macro">vec!</span>[<span class="macro-nonterminal">$crate::js::ScriptType::Inline</span>(<span class="macro-nonterminal">$js</span>)],
+                style: <span class="prelude-val">None</span>,
+            })
+            .<span class="kw">await</span>;
+    }};
+}
+
+<span class="doccomment">/// add components to the page.
 ///
 /// This is done by wrapping the component in a `c!` macro. The component will then be
 /// automatically built and rendered when needed.
@@ -608,12 +749,17 @@
 ///      }.boxed()))
 /// }.boxed());
 /// ```
+///
+/// # calling from outside a page render
+/// you have to call this from within a page render or it will not work.
+/// if you are in debug mode it will render out an error message containing the associated context id.
+/// in release mode it will just render to nothing.
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules!</span> c {
     (<span class="macro-nonterminal">$component</span>:expr) =&gt; {{
         <span class="kw">let </span>component = || <span class="macro-nonterminal">$component</span>;
 
-        <span class="macro-nonterminal">$crate::render_component</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::const_contextid!</span>(<span class="macro-nonterminal">u64</span>), component).<span class="kw">await
+        <span class="macro-nonterminal">$crate::render_component</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::const_nanoid!</span>(<span class="number">10</span>), <span class="macro-nonterminal">component</span>).<span class="kw">await
     </span>}};
 }
 </code></pre></div></section></main></body></html>

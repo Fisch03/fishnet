@@ -263,34 +263,12 @@
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! reusable components for building web pages (aka the main thing)
 
 </span><span class="kw">pub mod </span>prelude;
 
 <span class="kw">mod </span>build;
-<span class="kw">pub use </span>build::{BuildableComponent, BuiltComponent, ComponentBuildResult, ComponentGlobals};
-<span class="kw">use </span>std::any::TypeId;
+<span class="kw">pub use </span>build::{BuildableComponent, BuiltComponent, ComponentBuildResult};
 
 <span class="kw">mod </span>render;
 <span class="kw">use </span>render::ContentRenderer;
@@ -309,35 +287,24 @@
 <span class="kw">use </span>std::{fmt::Debug, marker::PhantomData, ops::Deref};
 <span class="kw">use </span>tower_service::Service;
 
-<span class="kw">use </span>nanoid::nanoid;
-<span class="kw">const </span>ID_ALPHABET: [char; <span class="number">26</span>] = [
-    <span class="string">'a'</span>, <span class="string">'b'</span>, <span class="string">'c'</span>, <span class="string">'d'</span>, <span class="string">'e'</span>, <span class="string">'f'</span>, <span class="string">'g'</span>, <span class="string">'h'</span>, <span class="string">'i'</span>, <span class="string">'j'</span>, <span class="string">'k'</span>, <span class="string">'l'</span>, <span class="string">'m'</span>, <span class="string">'n'</span>, <span class="string">'o'</span>, <span class="string">'p'</span>, <span class="string">'q'</span>, <span class="string">'r'</span>, <span class="string">'s'</span>,
-    <span class="string">'t'</span>, <span class="string">'u'</span>, <span class="string">'v'</span>, <span class="string">'w'</span>, <span class="string">'x'</span>, <span class="string">'y'</span>, <span class="string">'z'</span>,
-];
-
-<span class="doccomment">/// macro for creating a new component.
+<span class="doccomment">/// create a new component.
 ///
 /// it is highly recommended to use this macro instead of using a [`Component`] struct directly.
-/// for uniquely identifying components, they require a [`TypeId`]. this macro will handle creating
-/// a new zero-sized type for each component, and will use its type id to identify it.
+/// for uniquely identifying components, they require unique ids. this macro will automatically
+/// handle that for you.
+
+</span><span class="comment">// internally create a zero-sized struct with the name of the component. this is done to
+// hopefully give the user a warning if they don't give their component a PascalCase
+// name since the component name affects the css class name generation &gt;:3
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules!</span> component {
     (<span class="macro-nonterminal">$name</span>:ident) =&gt; {{
-        <span class="kw">pub struct </span><span class="macro-nonterminal">$name</span>;
-        <span class="kw">impl </span><span class="macro-nonterminal">$name </span>{
-            <span class="kw">pub fn </span>new() -&gt; <span class="macro-nonterminal">$crate::component::Component</span>&lt;
-                <span class="macro-nonterminal">$crate::component::NoRenderer</span>,
-                <span class="macro-nonterminal">$crate::component::NoState</span>,
-                (),
-            &gt; {
-                <span class="macro-nonterminal">$crate::component::Component::new</span>(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), std::any::TypeId::of::&lt;<span class="self">Self</span>&gt;())
-            }
-        }
-
-        <span class="macro-nonterminal">$name::new</span>()
+        <span class="attr">#[allow(dead_code)]
+        </span><span class="kw">struct </span><span class="macro-nonterminal">$name</span>;
+        <span class="macro-nonterminal">$crate::component::Component::new</span>(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="macro-nonterminal">$</span><span class="macro">crate::const_nanoid!</span>())
     }};
 }
-<span class="kw">pub use </span>component;
+<span class="kw">pub use </span><span class="macro-nonterminal">component</span>;
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>ComponentState&lt;ST&gt;
@@ -382,8 +349,6 @@
 <span class="kw">where
     </span>ST: Clone + Send + Sync,
 {
-    type_id: TypeId,
-
     name: String,
     id: String,
     is_dynamic: bool,
@@ -403,14 +368,11 @@
 
 <span class="comment">// ---- constructor ----
 </span><span class="kw">impl </span>Component&lt;NoRenderer, NoState, ()&gt; {
-    <span class="kw">pub fn </span>new(name: <span class="kw-2">&amp;</span>str, type_id: TypeId) -&gt; Component&lt;NoRenderer, NoState, ()&gt; {
-        <span class="kw">let </span>id = <span class="macro">nanoid!</span>(<span class="number">5</span>, <span class="kw-2">&amp;</span>ID_ALPHABET);
-
+    <span class="kw">pub fn </span>new(name: <span class="kw-2">&amp;</span>str, id: <span class="kw-2">&amp;</span>str) -&gt; Component&lt;NoRenderer, NoState, ()&gt; {
         <span class="self">Self </span>{
-            type_id,
-
             name: name.to_string(),
-            id,
+            id: id.to_string(),
+
             is_dynamic: <span class="bool-val">false</span>,
 
             state: (),
@@ -477,8 +439,6 @@
         C: Fn(ComponentState&lt;ST&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, Markup&gt; + Send + Sync + <span class="lifetime">'static</span>,
     {
         Component::&lt;HasRenderer, S, ST&gt; {
-            type_id: <span class="self">self</span>.type_id,
-
             name: <span class="self">self</span>.name,
             id: <span class="self">self</span>.id,
 
@@ -504,7 +464,6 @@
         C: Fn(ComponentState&lt;ST&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, Markup&gt; + Send + Sync + <span class="lifetime">'static</span>,
     {
         Component::&lt;HasRenderer, S, ST&gt; {
-            type_id: <span class="self">self</span>.type_id,
             name: <span class="self">self</span>.name,
             id: <span class="self">self</span>.id,
             is_dynamic: <span class="bool-val">true</span>,
@@ -550,7 +509,6 @@
         </span>ST: Clone + Send + Sync + <span class="lifetime">'static</span>,
     {
         Component::&lt;NoRenderer, HasState, ST&gt; {
-            type_id: <span class="self">self</span>.type_id,
             name: <span class="self">self</span>.name,
             id: <span class="self">self</span>.id,
 

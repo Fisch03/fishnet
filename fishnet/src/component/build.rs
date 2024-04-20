@@ -2,28 +2,23 @@ use async_trait::async_trait;
 use axum::{Extension, Router};
 use futures::future::{BoxFuture, FutureExt};
 use maud::{html, Markup};
-use std::any::TypeId;
 use std::sync::Arc;
 use tracing::{debug, instrument, trace};
 
 use super::{
-    render::{ComponentStyle, ContentType, StatefulContentRenderer},
+    render::{ContentType, StatefulContentRenderer},
     Component, ComponentRoute, ComponentState, HasRenderer,
 };
 use crate::css;
-use crate::js::ScriptType;
 use crate::page::render_context;
 
 #[derive(Debug, Clone)]
 pub struct BuiltComponent {
-    type_id: TypeId,
-
     #[allow(dead_code)]
     name: String,
-    class_name: String,
-
-    #[allow(dead_code)]
     id: String,
+
+    class_name: String,
 
     content: Arc<ContentType>,
 }
@@ -35,11 +30,6 @@ pub struct ComponentBuildResult {
     pub router: Option<(ComponentRoute, Router)>,
 }
 
-pub struct ComponentGlobals {
-    pub scripts: Vec<ScriptType>,
-    pub style: Option<ComponentStyle>,
-}
-
 impl BuiltComponent {
     pub fn name(&self) -> &str {
         &self.name
@@ -47,10 +37,6 @@ impl BuiltComponent {
 
     pub fn id(&self) -> &str {
         &self.id
-    }
-
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
     }
 
     pub async fn render(&self) -> Markup {
@@ -128,7 +114,7 @@ where
         let style = self.style.map(|style| style.render(&class_name));
 
         render_context::global_store()
-            .add(self.type_id, || ComponentGlobals {
+            .add(&self.id, || render_context::GlobalStoreEntry {
                 scripts: self.scripts,
                 style,
             })
@@ -137,10 +123,9 @@ where
         debug!("built component");
         ComponentBuildResult {
             built_component: BuiltComponent {
-                type_id: self.type_id,
                 name: self.name,
-                class_name,
                 id: self.id,
+                class_name,
                 content: Arc::new(content),
             },
             runner,

@@ -3,8 +3,7 @@
 pub mod prelude;
 
 mod build;
-pub use build::{BuildableComponent, BuiltComponent, ComponentBuildResult, ComponentGlobals};
-use std::any::TypeId;
+pub use build::{BuildableComponent, BuiltComponent, ComponentBuildResult};
 
 mod render;
 use render::ContentRenderer;
@@ -23,32 +22,21 @@ use maud::Markup;
 use std::{fmt::Debug, marker::PhantomData, ops::Deref};
 use tower_service::Service;
 
-use nanoid::nanoid;
-const ID_ALPHABET: [char; 26] = [
-    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
-    't', 'u', 'v', 'w', 'x', 'y', 'z',
-];
-
-/// macro for creating a new component.
+/// create a new component.
 ///
 /// it is highly recommended to use this macro instead of using a [`Component`] struct directly.
-/// for uniquely identifying components, they require a [`TypeId`]. this macro will handle creating
-/// a new zero-sized type for each component, and will use its type id to identify it.
+/// for uniquely identifying components, they require unique ids. this macro will automatically
+/// handle that for you.
+
+// internally create a zero-sized struct with the name of the component. this is done to
+// hopefully give the user a warning if they don't give their component a PascalCase
+// name since the component name affects the css class name generation >:3
 #[macro_export]
 macro_rules! component {
     ($name:ident) => {{
-        pub struct $name;
-        impl $name {
-            pub fn new() -> $crate::component::Component<
-                $crate::component::NoRenderer,
-                $crate::component::NoState,
-                (),
-            > {
-                $crate::component::Component::new(stringify!($name), std::any::TypeId::of::<Self>())
-            }
-        }
-
-        $name::new()
+        #[allow(dead_code)]
+        struct $name;
+        $crate::component::Component::new(stringify!($name), $crate::const_nanoid!())
     }};
 }
 pub use component;
@@ -96,8 +84,6 @@ pub struct Component<R, S, ST>
 where
     ST: Clone + Send + Sync,
 {
-    type_id: TypeId,
-
     name: String,
     id: String,
     is_dynamic: bool,
@@ -117,14 +103,11 @@ where
 
 // ---- constructor ----
 impl Component<NoRenderer, NoState, ()> {
-    pub fn new(name: &str, type_id: TypeId) -> Component<NoRenderer, NoState, ()> {
-        let id = nanoid!(5, &ID_ALPHABET);
-
+    pub fn new(name: &str, id: &str) -> Component<NoRenderer, NoState, ()> {
         Self {
-            type_id,
-
             name: name.to_string(),
-            id,
+            id: id.to_string(),
+
             is_dynamic: false,
 
             state: (),
@@ -191,8 +174,6 @@ where
         C: Fn(ComponentState<ST>) -> BoxFuture<'static, Markup> + Send + Sync + 'static,
     {
         Component::<HasRenderer, S, ST> {
-            type_id: self.type_id,
-
             name: self.name,
             id: self.id,
 
@@ -218,7 +199,6 @@ where
         C: Fn(ComponentState<ST>) -> BoxFuture<'static, Markup> + Send + Sync + 'static,
     {
         Component::<HasRenderer, S, ST> {
-            type_id: self.type_id,
             name: self.name,
             id: self.id,
             is_dynamic: true,
@@ -264,7 +244,6 @@ impl<R> Component<R, NoState, ()> {
         ST: Clone + Send + Sync + 'static,
     {
         Component::<NoRenderer, HasState, ST> {
-            type_id: self.type_id,
             name: self.name,
             id: self.id,
 

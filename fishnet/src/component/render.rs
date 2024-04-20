@@ -6,8 +6,6 @@ use maud::Markup;
 pub type ContentRenderer<ST> =
     Box<dyn Fn(ComponentState<ST>) -> BoxFuture<'static, Markup> + Send + Sync>;
 
-pub type ComponentStyle = String;
-
 pub struct StatefulContentRenderer<ST>
 where
     ST: Clone + Send + Sync,

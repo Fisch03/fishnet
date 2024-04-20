@@ -149,7 +149,7 @@ pub(crate) struct MediaRule {
 impl ToFmt for MediaRule {
     fn to_fmt(&self) -> String {
         format!(
-            "@media{}{{\n{}}}\n",
+            "@media {}{{\n{}}}\n",
             self.condition,
             Self::indent(self.rules.to_fmt())
         )
