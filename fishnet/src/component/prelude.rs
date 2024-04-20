@@ -12,7 +12,7 @@ pub use fishnet_macros::css;
 pub use maud::{html, Markup, Render};
 
 // boxing runner futures
-pub use futures::future::FutureExt;
+pub use futures::future::{BoxFuture, FutureExt};
 
 // sharing state
 pub use std::sync::Arc;

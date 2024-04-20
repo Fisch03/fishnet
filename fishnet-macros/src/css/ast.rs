@@ -99,7 +99,7 @@ impl ToFmt for Selector {
         if self.0.is_empty() {
             return ".&".to_string();
         }
-        format!(".& {}", self.0)
+        format!(".&{}", self.0)
     }
 }
 
@@ -111,6 +111,11 @@ pub(crate) struct QualifiedRule {
 impl ToFmt for QualifiedRule {
     fn to_fmt(&self) -> String {
         let mut out = String::new();
+
+        if self.declarations.is_empty() {
+            return out;
+        }
+
         out.push_str(&self.selector.to_fmt());
         out.push_str(" {\n");
         for declaration in &self.declarations {

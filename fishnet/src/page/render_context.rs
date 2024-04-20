@@ -17,7 +17,8 @@ fn render_context() -> &'static Mutex<Option<RenderContext>> {
     RENDER_CONTEXT.get_or_init(|| Mutex::new(None))
 }
 
-pub(crate) fn global_store() -> &'static GlobalStore {
+#[doc(hidden)]
+pub fn global_store() -> &'static GlobalStore {
     static GLOBAL_STORE: OnceLock<GlobalStore> = OnceLock::new();
     GLOBAL_STORE.get_or_init(|| GlobalStore::new())
 }
@@ -283,6 +284,9 @@ pub(crate) async fn exit_temporary_render() -> bool {
 
 #[allow(unused_imports)]
 pub use const_random::const_random as const_contextid;
+
+//TODO: global css/js macro.
+
 /// macro that lets you add components to the page.
 ///
 /// This is done by wrapping the component in a `c!` macro. The component will then be

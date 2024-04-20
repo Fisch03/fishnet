@@ -10,6 +10,7 @@ use super::{
     render::{ComponentStyle, ContentType, StatefulContentRenderer},
     Component, ComponentRoute, ComponentState, HasRenderer,
 };
+use crate::css;
 use crate::js::ScriptType;
 use crate::page::render_context;
 
@@ -19,6 +20,8 @@ pub struct BuiltComponent {
 
     #[allow(dead_code)]
     name: String,
+    class_name: String,
+
     #[allow(dead_code)]
     id: String,
 
@@ -52,7 +55,7 @@ impl BuiltComponent {
 
     pub async fn render(&self) -> Markup {
         html! {
-            div class=(self.name) { (self.content.render().await) }
+            div class=(self.class_name) { (self.content.render().await) }
         }
     }
 
@@ -120,7 +123,9 @@ where
         }
 
         trace!("rendering component style");
-        let style = self.style.map(|style| style.render(&self.name));
+
+        let class_name = css::pascal_to_kebab(&self.name);
+        let style = self.style.map(|style| style.render(&class_name));
 
         render_context::global_store()
             .add(self.type_id, || ComponentGlobals {
@@ -134,6 +139,7 @@ where
             built_component: BuiltComponent {
                 type_id: self.type_id,
                 name: self.name,
+                class_name,
                 id: self.id,
                 content: Arc::new(content),
             },

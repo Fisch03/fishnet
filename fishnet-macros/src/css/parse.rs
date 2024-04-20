@@ -62,7 +62,6 @@ impl Parser {
         };
 
         let result: Option<ast::StyleFragment> = match token {
-            //
             TokenTree::Ident(ref ident) => self.parse_declaration_or_qualified(ident.to_string()),
             TokenTree::Literal(ref literal) => self
                 .parse_declaration(literal.to_string())
@@ -75,7 +74,7 @@ impl Parser {
                     .parse_qualified_rule(format!("{} ", punct))
                     .map(ast::StyleFragment::QualifiedRule),
                 // part of a selector (no spacing)
-                '.' | '#' => self
+                '.' | '#' | ':' => self
                     .parse_qualified_rule(punct.to_string())
                     .map(ast::StyleFragment::QualifiedRule),
                 _ => None,
@@ -176,6 +175,9 @@ impl Parser {
                             declarations.push(self.parse_declaration(lit.to_string())?);
                         }
                         Some(TokenTree::Punct(ref punct)) if punct.as_char() == ';' => {}
+                        Some(TokenTree::Punct(ref punct)) => {
+                            declarations.push(self.parse_declaration(punct.to_string())?);
+                        }
                         Some(_) => break,
                         None => break,
                     }
@@ -198,6 +200,13 @@ impl Parser {
             match self.peek() {
                 Some(TokenTree::Punct(ref punct)) => selector.push(punct.as_char()),
                 Some(TokenTree::Ident(ref ident)) => selector.push_str(&ident.to_string()),
+                Some(TokenTree::Group(ref group))
+                    if group.delimiter() == Delimiter::Parenthesis =>
+                {
+                    selector.push('(');
+                    selector.push_str(&group.stream().to_string());
+                    selector.push(')');
+                }
                 Some(TokenTree::Group(_)) => break,
                 Some(token) => abort!(token.span(), "unexpected token"),
                 None => abort_call_site!("unexpected end of input"),
@@ -205,7 +214,12 @@ impl Parser {
             self.advance();
         }
 
-        Some(ast::Selector(selector.trim().to_string()))
+        let mut selector = selector.trim().to_string();
+        if !selector.starts_with(":") {
+            selector.insert_str(0, " ");
+        }
+
+        Some(ast::Selector(selector))
     }
 
     fn parse_at_rule(&mut self) -> Option<ast::AtRule> {

@@ -20,6 +20,12 @@ fn test_css() {
             color: #000;
         }
 
+        :nth-child(2) {
+            --var-name: 10px;
+        }
+
+        .empty-rule {}
+
         display: inline-block;
 
         @media (max-width: 600px) and (min-width: 400px) {
@@ -54,6 +60,10 @@ fn test_css() {
 
 .component > div {
     color: #000;
+}
+
+.component:nth-child(2) {
+    --var-name: 10px;
 }
 
 @media (max-width: 600px) and (min-width: 400px) {

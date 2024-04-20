@@ -1,4 +1,22 @@
-//! data structures for dealing with css
+//! data structures and functions for dealing with css
+
+///  function for turning a pascal case string into a kebab case string.
+pub(crate) fn pascal_to_kebab(input: &str) -> String {
+    let mut out = String::new();
+
+    let mut iter = input.chars();
+    out.push(iter.next().unwrap().to_ascii_lowercase());
+
+    for c in iter {
+        if c.is_uppercase() {
+            out.push('-');
+            out.push(c.to_ascii_lowercase());
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
 
 /// a special type of string generated using the [`css!`](crate::css!) macro.
 ///
