@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["StyleFragment","StyleString"]};
+window.SIDEBAR_ITEMS = {"struct":["RenderedStyle","StyleFragment","Stylesheet"]};

@@ -39,8 +39,13 @@ fn test_css() {
         }
     };
 
+    let mut stylesheet = fishnet::css::Stylesheet::new();
+    stylesheet.add(&fragment.render("component"));
+
+    println!("{}", stylesheet.render());
+
     assert_eq!(
-        fragment.render("component").as_str(),
+        stylesheet.render(),
         r".component {
     color: #f00000;
     display: inline-block;
@@ -72,7 +77,6 @@ fn test_css() {
     .component #test {
         color: green;
     }
-}
-"
+}"
     );
 }

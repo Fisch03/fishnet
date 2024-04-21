@@ -261,6 +261,7 @@
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A visitable page on the [`Website`](crate::website::Website).
 
 </span><span class="kw">use </span>async_trait::async_trait;
@@ -272,6 +273,7 @@
 <span class="kw">use </span>tokio::sync::Mutex;
 <span class="kw">use </span>tracing::{debug, debug_span, instrument, Instrument};
 
+<span class="kw">use </span><span class="kw">crate</span>::css::Stylesheet;
 <span class="kw">use </span><span class="kw">crate</span>::js::{<span class="self">self</span>, ScriptType};
 <span class="kw">use </span><span class="kw">crate</span>::routes::APIRouter;
 
@@ -295,7 +297,7 @@
     bundled_script: String,
 
     style_path: String,
-    stylesheet: String,
+    stylesheet: Stylesheet,
 
     <span class="comment">// tasks that need to be awaited before serving content
     </span>tasks: Vec&lt;tokio::task::JoinHandle&lt;()&gt;&gt;,
@@ -336,7 +338,7 @@
             bundled_script,
 
             style_path,
-            stylesheet: String::new(),
+            stylesheet: Stylesheet::new(),
 
             tasks: Vec::new(),
         };
@@ -381,7 +383,7 @@
                     }
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(component_globals) = render_context::global_store().get(id).<span class="kw">await </span>{
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(style) = <span class="kw-2">&amp;</span>component_globals.style {
-                            page.lock().<span class="kw">await</span>.stylesheet.push_str(style.as_str());
+                            page.lock().<span class="kw">await</span>.stylesheet.add(style);
                         }
 
                         <span class="kw">for </span>script <span class="kw">in </span><span class="kw-2">&amp;</span>component_globals.scripts {
@@ -454,7 +456,7 @@
 
         (
             [(header::CONTENT_TYPE, <span class="string">"text/css"</span>)],
-            page.stylesheet.clone(),
+            page.stylesheet.render(),
         )
     }
 }

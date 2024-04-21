@@ -53,9 +53,82 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! data structures and functions for dealing with css
+</span><span class="kw">use </span>std::collections::{hash_map::Entry, HashMap};
+<span class="kw">use </span>tracing::debug;
 
-///  function for turning a pascal case string into a kebab case string.
+<span class="doccomment">///  function for turning a pascal case string into a kebab case string.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>pascal_to_kebab(input: <span class="kw-2">&amp;</span>str) -&gt; String {
     <span class="kw">let </span><span class="kw-2">mut </span>out = String::new();
 
@@ -73,39 +146,108 @@
     out
 }
 
-<span class="doccomment">/// a special type of string generated using the [`css!`](crate::css!) macro.
+<span class="doccomment">/// css generated using the [`css!`](crate::css!) macro.
 ///
-/// currently this internally is a css string with the character `&amp;` being substituted with the top level class used in
-/// the render function. this may change at any time, so directly constructing a [`StyleFragment`] without
+/// currently this internally is css with the character `&amp;` being substituted with the top level class used in
+/// the render function. this may (and probably will) change at any time, so directly constructing a [`StyleFragment`] without
 /// the [`css!`](crate::css!) macro is strongly discouraged.
-</span><span class="kw">pub struct </span>StyleFragment(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str);
+</span><span class="kw">pub struct </span>StyleFragment&lt;<span class="lifetime">'a</span>&gt; {
+    style: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
+    media_queries: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str)],
+}
 
-<span class="kw">impl </span>StyleFragment {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; StyleFragment&lt;<span class="lifetime">'_</span>&gt; {
     <span class="doccomment">/// construct a new [`StyleFragment`] using the given string.
     ///
     /// since this is normally only used
     /// via the [`css!`](crate::css!) macro, there is zero validation of the passed in string
     /// slice!
-    </span><span class="kw">pub fn </span>new(input: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(input)
+    </span><span class="kw">pub fn </span>new(style: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, media_queries: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str)]) -&gt; StyleFragment&lt;<span class="lifetime">'a</span>&gt; {
+        StyleFragment {
+            style,
+            media_queries,
+        }
     }
 
     <span class="doccomment">/// render the [`StyleFragment`] relative to the passed in `toplevel_class`.
-    </span><span class="kw">pub fn </span>render(<span class="kw-2">&amp;</span><span class="self">self</span>, toplevel_class: <span class="kw-2">&amp;</span>str) -&gt; StyleString {
-        StyleString(<span class="self">self</span>.<span class="number">0</span>.to_string().replace(<span class="string">"&amp;"</span>, toplevel_class))
+    </span><span class="kw">pub fn </span>render(<span class="kw-2">&amp;</span><span class="self">self</span>, toplevel_class: <span class="kw-2">&amp;</span>str) -&gt; RenderedStyle {
+        RenderedStyle {
+            style: <span class="self">self</span>.style.replace(<span class="string">"&amp;"</span>, toplevel_class),
+            media_queries: <span class="self">self
+                </span>.media_queries
+                .iter()
+                .map(|(query, style)| (query.to_string(), style.replace(<span class="string">"&amp;"</span>, toplevel_class)))
+                .collect(),
+        }
     }
 }
 
 <span class="doccomment">/// string representation of a rendered [`StyleFragment`].
 </span><span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>StyleString(String);
+</span><span class="kw">pub struct </span>RenderedStyle {
+    style: String,
+    media_queries: Vec&lt;(String, String)&gt;,
+}
 
-<span class="kw">impl </span>StyleString {
-    <span class="kw">pub fn </span>as_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
-    </span>}
-    <span class="kw">pub fn </span>consume(<span class="self">self</span>) -&gt; String {
-        <span class="self">self</span>.<span class="number">0
-    </span>}
+<span class="doccomment">/// a full css stylesheet
+///
+/// a stylesheet is basically just a collection of [`RenderedStyle`]s. however it caches all its
+/// renders, so you can only add to it and never remove things.
+</span><span class="kw">pub struct </span>Stylesheet {
+    style: String,
+    rendered_media_queries: String,
+
+    media_queries: HashMap&lt;String, String&gt;,
+    media_queries_size_hint: usize,
+    media_queries_changed: bool,
+}
+
+<span class="kw">impl </span>Stylesheet {
+    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            style: String::new(),
+            rendered_media_queries: String::new(),
+
+            media_queries: HashMap::new(),
+            media_queries_size_hint: <span class="number">0</span>,
+            media_queries_changed: <span class="bool-val">false</span>,
+        }
+    }
+
+    <span class="kw">pub fn </span>add(<span class="kw-2">&amp;mut </span><span class="self">self</span>, rendered: <span class="kw-2">&amp;</span>RenderedStyle) {
+        <span class="self">self</span>.style.push_str(<span class="kw-2">&amp;</span>rendered.style);
+
+        <span class="self">self</span>.media_queries_changed |= !rendered.media_queries.is_empty();
+
+        <span class="kw">for </span>(query, style) <span class="kw">in </span><span class="kw-2">&amp;</span>rendered.media_queries {
+            <span class="self">self</span>.media_queries_size_hint += style.len() + query.len();
+            <span class="kw">match </span><span class="self">self</span>.media_queries.entry(query.to_string()) {
+                Entry::Occupied(<span class="kw-2">mut </span>entry) =&gt; {
+                    entry.get_mut().push(<span class="string">'\n'</span>);
+                    entry.get_mut().push_str(<span class="kw-2">&amp;</span>style);
+                }
+                Entry::Vacant(entry) =&gt; {
+                    entry.insert(style.to_string());
+                }
+            }
+        }
+    }
+
+    <span class="kw">pub fn </span>render(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; String {
+        <span class="kw">if </span><span class="self">self</span>.media_queries_changed {
+            <span class="macro">debug!</span>(<span class="string">"re-rendering media queries"</span>);
+
+            <span class="self">self</span>.rendered_media_queries = <span class="self">self</span>.media_queries.iter().fold(
+                String::with_capacity(<span class="self">self</span>.media_queries_size_hint),
+                |<span class="kw-2">mut </span>acc, (query, style)| {
+                    acc.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"\n@media {}{{\n{}}}\n"</span>, query, style));
+                    acc
+                },
+            );
+
+            <span class="self">self</span>.media_queries_changed = <span class="bool-val">false</span>;
+        }
+        <span class="macro">format!</span>(<span class="string">"{}{}"</span>, <span class="self">self</span>.style, <span class="self">self</span>.rendered_media_queries)
+    }
 }
 </code></pre></div></section></main></body></html>

@@ -417,7 +417,7 @@
 #[doc(hidden)]
 </span><span class="kw">pub struct </span>GlobalStoreEntry {
     <span class="kw">pub </span>scripts: Vec&lt;<span class="kw">crate</span>::js::ScriptType&gt;,
-    <span class="kw">pub </span>style: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::css::StyleString&gt;,
+    <span class="kw">pub </span>style: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::css::RenderedStyle&gt;,
 }
 
 <span class="kw">pub struct </span>GlobalStore(Mutex&lt;HashMap&lt;String, Arc&lt;GlobalStoreEntry&gt;&gt;&gt;);

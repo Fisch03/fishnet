@@ -360,7 +360,7 @@
 
     runner: <span class="prelude-ty">Option</span>&lt;ComponentRunner&lt;ST&gt;&gt;,
     scripts: Vec&lt;ScriptType&gt;,
-    style: <span class="prelude-ty">Option</span>&lt;StyleFragment&gt;,
+    style: <span class="prelude-ty">Option</span>&lt;StyleFragment&lt;<span class="lifetime">'static</span>&gt;&gt;,
 
     _renderer_state: PhantomData&lt;R&gt;,
     _state_state: PhantomData&lt;S&gt;,
@@ -404,7 +404,7 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>style(<span class="kw-2">mut </span><span class="self">self</span>, style: StyleFragment) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>style(<span class="kw-2">mut </span><span class="self">self</span>, style: StyleFragment&lt;<span class="lifetime">'static</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.style = <span class="prelude-val">Some</span>(style);
         <span class="self">self
     </span>}

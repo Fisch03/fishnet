@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, debug_span, instrument, Instrument};
 
+use crate::css::Stylesheet;
 use crate::js::{self, ScriptType};
 use crate::routes::APIRouter;
 
@@ -32,7 +33,7 @@ pub struct BuiltPage {
     bundled_script: String,
 
     style_path: String,
-    stylesheet: String,
+    stylesheet: Stylesheet,
 
     // tasks that need to be awaited before serving content
     tasks: Vec<tokio::task::JoinHandle<()>>,
@@ -73,7 +74,7 @@ impl BuiltPage {
             bundled_script,
 
             style_path,
-            stylesheet: String::new(),
+            stylesheet: Stylesheet::new(),
 
             tasks: Vec::new(),
         };
@@ -118,7 +119,7 @@ impl BuiltPage {
                     }
                     if let Some(component_globals) = render_context::global_store().get(id).await {
                         if let Some(style) = &component_globals.style {
-                            page.lock().await.stylesheet.push_str(style.as_str());
+                            page.lock().await.stylesheet.add(style);
                         }
 
                         for script in &component_globals.scripts {
@@ -191,7 +192,7 @@ impl BuiltPage {
 
         (
             [(header::CONTENT_TYPE, "text/css")],
-            page.stylesheet.clone(),
+            page.stylesheet.render(),
         )
     }
 }

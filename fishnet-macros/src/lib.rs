@@ -18,14 +18,16 @@ pub fn css(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input: TokenStream = input.into();
 
     let parsed = css::parse(input);
-    let parsed = parsed.to_fmt();
+    let mut fmt = css::StyleFmt::new();
+    parsed.to_fmt(&mut fmt);
 
-    quote!({
+    let out = quote!({
         extern crate fishnet;
 
-        fishnet::css::StyleFragment::new(#parsed)
-    })
-    .into()
+        fishnet::css::StyleFragment::new(#fmt)
+    });
+
+    out.into()
 }
 
 #[proc_macro]

@@ -95,7 +95,7 @@ where
 
     runner: Option<ComponentRunner<ST>>,
     scripts: Vec<ScriptType>,
-    style: Option<StyleFragment>,
+    style: Option<StyleFragment<'static>>,
 
     _renderer_state: PhantomData<R>,
     _state_state: PhantomData<S>,
@@ -139,7 +139,7 @@ where
         self
     }
 
-    pub fn style(mut self, style: StyleFragment) -> Self {
+    pub fn style(mut self, style: StyleFragment<'static>) -> Self {
         self.style = Some(style);
         self
     }

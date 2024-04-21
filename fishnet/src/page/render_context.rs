@@ -35,7 +35,7 @@ impl ComponentStore {
 #[doc(hidden)]
 pub struct GlobalStoreEntry {
     pub scripts: Vec<crate::js::ScriptType>,
-    pub style: Option<crate::css::StyleString>,
+    pub style: Option<crate::css::RenderedStyle>,
 }
 
 pub struct GlobalStore(Mutex<HashMap<String, Arc<GlobalStoreEntry>>>);
