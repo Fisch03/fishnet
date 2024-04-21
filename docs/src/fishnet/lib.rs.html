@@ -296,6 +296,40 @@
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! fishnet is a opinionated, performant web framework for small projects and personal websites where [htmx](https://htmx.org/) is a first class citizen.
 //!
 //! # overview
@@ -569,7 +603,7 @@
 ///
 /// #### relative selectors
 /// ```css
-/// css!{
+/// css! {
 ///     &gt; div {
 ///         /* ... */
 ///     }
@@ -581,6 +615,40 @@
 /// ```
 /// all selectors are relative to the root class used while rendering the resulting [`StyleFragment`](crate::css::StyleFragment). therefore `&gt; div` will only select its direct children that are `div`s
 /// and `*` will select all children of the root class
+///
+/// ### the issue with em, ex and color hex values
+/// due to the way rust syntax works, everytime you have a number followed by the letter `e`
+/// (e.g. `#2effff`, `1em`, ...), it will be interpreted as an exponential number and result in a
+/// compile error. in these special cases you can use a string literal and it will be automatically
+/// unescaped. this currently works for strings that start with a `#` and strings that end with `em` and `ex`, everything else will stay a string.
+/// if you want a string that matches these conditions to stay as a string, you can triple quote it:
+/// ```css
+/// css! {
+///     some-color: #2effff   /* this will not compile... */
+///     some-color: "#2effff" /* ...but this will! */
+///
+///     some-length: 1em;     /* this will not compile... */
+///     some-length: "1em";   /* ...but this will! */
+///
+///     some-length: 1ex;     /* this will not compile... */
+///     some-length: "1ex";   /* ...but this will! */
+///
+///     some-other-string: "hello world!"; /* this will stay a string */
+///     string-with-em: """1em""";         /* this will become a normal string */
+/// }
+///```
+///
+/// ### double class selectors and other special cases
+/// in special cases like `.root-class.other-class` (e.g. both classes on the same element), cou
+/// can refer to the root class using `&amp;`:
+/// ```css
+/// css! {
+///     &amp;.other-class {
+///         /* ... */
+///     }
+/// }
+/// ```
+/// this will only work if the `&amp;` is the first character of the selector!
 </span><span class="kw">pub use </span>fishnet_macros::css;
 
 <span class="attr">#[doc(hidden)]

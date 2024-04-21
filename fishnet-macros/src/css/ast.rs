@@ -167,11 +167,11 @@ impl ToFmt for Declaration {
 pub(crate) struct Selector(pub String);
 impl ToFmt for Selector {
     fn to_fmt(&self, style: &mut StyleFmt) {
-        if self.0.is_empty() {
-            style.push_style_no_newline(".&");
-        } else {
-            style.push_style_no_newline(&format!(".&{}", self.0));
+        style.push_style_no_newline(".");
+        if !self.0.contains("&") {
+            style.push_style_no_indent("&");
         }
+        style.push_style_no_indent(&self.0);
     }
 }
 

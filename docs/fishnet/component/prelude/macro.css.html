@@ -6,11 +6,11 @@
 };
 </code></pre></div>
 <p>will automatically be scoped to select the root class used while rendering the resulting <a href="../../css/struct.StyleFragment.html" title="struct fishnet::css::StyleFragment"><code>StyleFragment</code></a></p>
-<h5 id="relative-selectors"><a class="doc-anchor" href="#relative-selectors">§</a>relative selectors</h5><div class="example-wrap"><pre class="language-css"><code>css!{
+<h5 id="relative-selectors"><a class="doc-anchor" href="#relative-selectors">§</a>relative selectors</h5><div class="example-wrap"><pre class="language-css"><code>css! {
     &gt; div {
         /* ... */
     }
-     
+    
     * {
         /* ... */
     }
@@ -18,4 +18,33 @@
 </code></pre></div>
 <p>all selectors are relative to the root class used while rendering the resulting <a href="../../css/struct.StyleFragment.html" title="struct fishnet::css::StyleFragment"><code>StyleFragment</code></a>. therefore <code>&gt; div</code> will only select its direct children that are <code>div</code>s
 and <code>*</code> will select all children of the root class</p>
+<h4 id="the-issue-with-em-ex-and-color-hex-values"><a class="doc-anchor" href="#the-issue-with-em-ex-and-color-hex-values">§</a>the issue with em, ex and color hex values</h4>
+<p>due to the way rust syntax works, everytime you have a number followed by the letter <code>e</code>
+(e.g. <code>#2effff</code>, <code>1em</code>, …), it will be interpreted as an exponential number and result in a
+compile error. in these special cases you can use a string literal and it will be automatically
+unescaped. this currently works for strings that start with a <code>#</code> and strings that end with <code>em</code> and <code>ex</code>, everything else will stay a string.
+if you want a string that matches these conditions to stay as a string, you can triple quote it:</p>
+<div class="example-wrap"><pre class="language-css"><code>css! {
+    some-color: #2effff   /* this will not compile... */
+    some-color: &quot;#2effff&quot; /* ...but this will! */
+
+    some-length: 1em;     /* this will not compile... */
+    some-length: &quot;1em&quot;;   /* ...but this will! */
+
+    some-length: 1ex;     /* this will not compile... */
+    some-length: &quot;1ex&quot;;   /* ...but this will! */
+
+    some-other-string: &quot;hello world!&quot;; /* this will stay a string */
+    string-with-em: &quot;&quot;&quot;1em&quot;&quot;&quot;;         /* this will become a normal string */
+}
+</code></pre></div><h4 id="double-class-selectors-and-other-special-cases"><a class="doc-anchor" href="#double-class-selectors-and-other-special-cases">§</a>double class selectors and other special cases</h4>
+<p>in special cases like <code>.root-class.other-class</code> (e.g. both classes on the same element), cou
+can refer to the root class using <code>&amp;</code>:</p>
+<div class="example-wrap"><pre class="language-css"><code>css! {
+    &amp;.other-class {
+        /* ... */
+    }
+}
+</code></pre></div>
+<p>this will only work if the <code>&amp;</code> is the first character of the selector!</p>
 </div></details></section></div></main></body></html>

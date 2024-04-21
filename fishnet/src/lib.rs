@@ -271,7 +271,7 @@ pub mod js;
 ///
 /// #### relative selectors
 /// ```css
-/// css!{
+/// css! {
 ///     > div {
 ///         /* ... */
 ///     }
@@ -283,6 +283,40 @@ pub mod js;
 /// ```
 /// all selectors are relative to the root class used while rendering the resulting [`StyleFragment`](crate::css::StyleFragment). therefore `> div` will only select its direct children that are `div`s
 /// and `*` will select all children of the root class
+///
+/// ### the issue with em, ex and color hex values
+/// due to the way rust syntax works, everytime you have a number followed by the letter `e`
+/// (e.g. `#2effff`, `1em`, ...), it will be interpreted as an exponential number and result in a
+/// compile error. in these special cases you can use a string literal and it will be automatically
+/// unescaped. this currently works for strings that start with a `#` and strings that end with `em` and `ex`, everything else will stay a string.
+/// if you want a string that matches these conditions to stay as a string, you can triple quote it:
+/// ```css
+/// css! {
+///     some-color: #2effff   /* this will not compile... */
+///     some-color: "#2effff" /* ...but this will! */
+///
+///     some-length: 1em;     /* this will not compile... */
+///     some-length: "1em";   /* ...but this will! */
+///
+///     some-length: 1ex;     /* this will not compile... */
+///     some-length: "1ex";   /* ...but this will! */
+///
+///     some-other-string: "hello world!"; /* this will stay a string */
+///     string-with-em: """1em""";         /* this will become a normal string */
+/// }
+///```
+///
+/// ### double class selectors and other special cases
+/// in special cases like `.root-class.other-class` (e.g. both classes on the same element), cou
+/// can refer to the root class using `&`:
+/// ```css
+/// css! {
+///     &.other-class {
+///         /* ... */
+///     }
+/// }
+/// ```
+/// this will only work if the `&` is the first character of the selector!
 pub use fishnet_macros::css;
 
 #[doc(hidden)]

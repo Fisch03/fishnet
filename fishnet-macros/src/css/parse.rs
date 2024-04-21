@@ -1,6 +1,6 @@
 use crate::css::ast;
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
-use proc_macro_error::{abort, abort_call_site, SpanRange};
+use proc_macro_error::{abort, abort_call_site, emit_error, SpanRange};
 
 pub(crate) fn parse(input: TokenStream) -> ast::Ruleset {
     Parser::new(input).parse()
@@ -37,6 +37,10 @@ impl Parser {
         self.input.clone().next()
     }
 
+    fn next_allow_nesting(&mut self) -> Option<TokenTree> {
+        self.input.next()
+    }
+
     fn advance(&mut self) {
         self.input.next();
     }
@@ -56,7 +60,7 @@ impl Parser {
     }
 
     fn parse_fragment(&mut self) -> ast::StyleFragment {
-        let token = match self.next() {
+        let token = match self.next_allow_nesting() {
             Some(token) => token,
             None => abort_call_site!("unexpected end of input"),
         };
@@ -74,7 +78,7 @@ impl Parser {
                     .parse_qualified_rule(format!("{} ", punct))
                     .map(ast::StyleFragment::QualifiedRule),
                 // part of a selector (no spacing)
-                '.' | '#' | ':' => self
+                '.' | '#' | ':' | '&' => self
                     .parse_qualified_rule(punct.to_string())
                     .map(ast::StyleFragment::QualifiedRule),
                 _ => None,
@@ -83,8 +87,10 @@ impl Parser {
             _ => None,
         };
 
-        result
-            .unwrap_or_else(|| ast::StyleFragment::ParseError(SpanRange::single_span(token.span())))
+        result.unwrap_or_else(|| {
+            emit_error!(token.span(), "parse error");
+            ast::StyleFragment::ParseError(SpanRange::single_span(token.span()))
+        })
     }
 
     fn parse_declaration_or_qualified(&mut self, mut ident: String) -> Option<ast::StyleFragment> {
@@ -126,6 +132,7 @@ impl Parser {
         }
 
         let mut value = String::new();
+        let mut maybe_triple_quote = false;
         loop {
             match self.peek() {
                 Some(TokenTree::Punct(ref punct)) => match punct.as_char() {
@@ -133,9 +140,30 @@ impl Parser {
                     '{' | '}' => {
                         return None;
                     }
+                    ':' | '&' => {
+                        abort!(punct.span(), "unexpected token");
+                    }
                     _ => value.push(punct.as_char()),
                 },
-                Some(TokenTree::Literal(ref lit)) => value.push_str(&lit.to_string()),
+                Some(TokenTree::Literal(ref lit)) => {
+                    let lit = lit.to_string();
+                    let mut lit = lit.as_str();
+                    if maybe_triple_quote {
+                        maybe_triple_quote = false;
+                    } else if lit == "\"\"" {
+                        // triple quoted string incoming? if yes fully escape it
+                        maybe_triple_quote = true;
+                        lit = "";
+                    } else if lit.starts_with("\"#")
+                        || lit.ends_with("em\"")
+                        || lit.ends_with("ex\"")
+                    {
+                        // allow escaping values that might have a "..2e.." form since rust treats them
+                        // as exponential numbers otherwise
+                        lit = &lit[1..lit.len() - 1];
+                    }
+                    value.push_str(lit);
+                }
                 Some(TokenTree::Ident(ref ident)) => value.push_str(&ident.to_string()),
                 Some(TokenTree::Group(ref group))
                     if group.delimiter() == Delimiter::Parenthesis =>
@@ -215,7 +243,8 @@ impl Parser {
         }
 
         let mut selector = selector.trim().to_string();
-        if !selector.starts_with(":") {
+
+        if !selector.starts_with(":") && !selector.starts_with("&") {
             selector.insert_str(0, " ");
         }
 
@@ -226,7 +255,30 @@ impl Parser {
         match self.next() {
             Some(TokenTree::Ident(ref ident)) => match ident.to_string().as_str() {
                 "media" => self.parse_media_rule().map(ast::AtRule::Media),
-                _ => Some(ast::AtRule::Other(ident.to_string())),
+                _ => {
+                    let mut rule = format!("@{} ", ident.to_string());
+                    loop {
+                        match self.next() {
+                            Some(TokenTree::Punct(ref punct)) if punct.as_char() == ';' => {
+                                rule.push(';');
+                                break;
+                            }
+                            Some(TokenTree::Punct(ref punct)) => rule.push(punct.as_char()),
+                            Some(TokenTree::Ident(ref ident)) => rule.push_str(&ident.to_string()),
+                            Some(TokenTree::Group(ref group))
+                                if group.delimiter() == Delimiter::Parenthesis =>
+                            {
+                                rule.push('(');
+                                rule.push_str(&group.stream().to_string());
+                                rule.push(')');
+                            }
+
+                            Some(token) => abort!(token.span(), "unexpected token"),
+                            None => abort_call_site!("unexpected end of input"),
+                        }
+                    }
+                    Some(ast::AtRule::Other(rule))
+                }
             },
             Some(token) => abort!(token.span(), "unexpected token"),
             None => abort_call_site!("unexpected end of input"),
