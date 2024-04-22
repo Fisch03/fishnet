@@ -379,3 +379,19 @@ fn test_units_math() {
         ",
     )
 }
+
+#[test]
+fn test_border() {
+    test_match(
+        css! {
+            border-radius: 3rem 0 0 3rem;
+            border-right: 1px solid var(--fg-color);
+        },
+        r"
+        .component {
+            border-radius: 3rem 0 0 3rem;
+            border-right: 1px solid var(--fg-color);
+        }
+        ",
+    )
+}

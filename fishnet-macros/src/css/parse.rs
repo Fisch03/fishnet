@@ -133,17 +133,30 @@ impl Parser {
 
         let mut value = String::new();
         let mut maybe_triple_quote = false;
+        let mut add_space = true;
+
         loop {
             match self.peek() {
                 Some(TokenTree::Punct(ref punct)) => match punct.as_char() {
-                    ';' => break,
+                    ';' => {
+                        if value.ends_with(' ') {
+                            value.pop();
+                        }
+                        break;
+                    }
                     '{' | '}' => {
                         return None;
                     }
                     ':' | '&' => {
                         abort!(punct.span(), "unexpected token");
                     }
-                    _ => value.push(punct.as_char()),
+                    _ => {
+                        if value.ends_with(' ') {
+                            value.pop();
+                        }
+                        add_space = false;
+                        value.push(punct.as_char())
+                    }
                 },
                 Some(TokenTree::Literal(ref lit)) => {
                     let lit = lit.to_string();
@@ -152,6 +165,7 @@ impl Parser {
                         maybe_triple_quote = false;
                     } else if lit == "\"\"" {
                         // triple quoted string incoming? if yes fully escape it
+                        add_space = false;
                         maybe_triple_quote = true;
                         lit = "";
                     } else if lit.starts_with("\"#")
@@ -168,6 +182,9 @@ impl Parser {
                 Some(TokenTree::Group(ref group))
                     if group.delimiter() == Delimiter::Parenthesis =>
                 {
+                    if value.ends_with(' ') {
+                        value.pop();
+                    }
                     value.push('(');
                     value.push_str(&group.stream().to_string());
                     value.push(')');
@@ -175,6 +192,11 @@ impl Parser {
                 Some(token) => abort!(token.span(), "unexpected token"),
                 None => abort_call_site!("unexpected end of input"),
             }
+            if add_space {
+                value.push(' ');
+            }
+            add_space = true;
+
             self.advance();
         }
 

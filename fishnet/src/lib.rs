@@ -284,7 +284,7 @@ pub mod js;
 /// all selectors are relative to the root class used while rendering the resulting [`StyleFragment`](crate::css::StyleFragment). therefore `> div` will only select its direct children that are `div`s
 /// and `*` will select all children of the root class
 ///
-/// ### the issue with em, ex and color hex values
+/// ### the issue with `em`, `ex` and color hex values
 /// due to the way rust syntax works, everytime you have a number followed by the letter `e`
 /// (e.g. `#2effff`, `1em`, ...), it will be interpreted as an exponential number and result in a
 /// compile error. in these special cases you can use a string literal and it will be automatically
@@ -307,7 +307,7 @@ pub mod js;
 ///```
 ///
 /// ### double class selectors and other special cases
-/// in special cases like `.root-class.other-class` (e.g. both classes on the same element), cou
+/// in special cases like `.root-class.other-class` (e.g. both classes on the same element), you
 /// can refer to the root class using `&`:
 /// ```css
 /// css! {
