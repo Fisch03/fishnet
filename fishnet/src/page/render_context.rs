@@ -38,6 +38,7 @@ pub struct GlobalStoreEntry {
     pub style: Option<crate::css::RenderedStyle>,
 }
 
+#[derive(Debug)]
 pub struct GlobalStore(Mutex<HashMap<String, Arc<GlobalStoreEntry>>>);
 impl GlobalStore {
     pub fn new() -> Self {
@@ -61,8 +62,8 @@ impl GlobalStore {
         }
     }
 
-    pub(crate) async fn get<'a>(&'a self, id: String) -> Option<Arc<GlobalStoreEntry>> {
-        self.0.lock().await.get(&id).cloned()
+    pub async fn get<'a>(&'a self, id: &str) -> Option<Arc<GlobalStoreEntry>> {
+        self.0.lock().await.get(id).cloned()
     }
 }
 

@@ -319,6 +319,9 @@ pub mod js;
 /// this will only work if the `&` is the first character of the selector!
 pub use fishnet_macros::css;
 
+/// TODO: document this
+pub use fishnet_macros::component;
+
 #[doc(hidden)]
 pub use fishnet_macros::const_nanoid;
 

@@ -1,6 +1,8 @@
 mod css;
 use crate::css::ToFmt;
 
+mod component;
+
 use nanoid::nanoid;
 use proc_macro2::{TokenStream, TokenTree};
 use proc_macro_error::{abort, proc_macro_error};
@@ -26,6 +28,27 @@ pub fn css(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
         fishnet::css::StyleFragment::new(#fmt)
     });
+
+    out.into()
+}
+
+#[proc_macro_attribute]
+#[proc_macro_error]
+pub fn component(
+    _attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let item: TokenStream = item.into();
+
+    let component = component::parse(item);
+
+    let out = quote!(
+            extern crate fishnet;
+
+            #component
+    );
+
+    dbg!(out.to_string());
 
     out.into()
 }

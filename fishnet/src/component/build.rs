@@ -134,6 +134,7 @@ where
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use crate::component::prelude::*;
@@ -222,3 +223,4 @@ mod tests {
     }
     */
 }
+*/

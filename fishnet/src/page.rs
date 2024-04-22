@@ -41,7 +41,7 @@ pub struct BuiltPage {
 
 impl BuiltPage {
     #[instrument(name = "Page::build", skip_all, fields(name = %page.name))]
-    async fn new(page: Page, path: &str) -> Router {
+    async fn new(page: Page, path: &str) -> (Arc<Mutex<BuiltPage>>, Router) {
         let base_path = path.trim_end_matches('/');
         let script_path = format!("{}/script.js", base_path);
         let style_path = format!("{}/style.css", base_path);
@@ -80,19 +80,23 @@ impl BuiltPage {
         };
 
         let api_router = built_page.api_router.make_router().await;
-        let page_extension = Extension(Arc::new(Mutex::new(built_page)));
+        let built_page = Arc::new(Mutex::new(built_page));
+        let page_extension = Extension(built_page.clone());
 
         // pre-render the page to save request time. this is obviously not guaranteed to prerender all the components, but it should get most of them.
         debug!("performing page pre-render");
         let _ = Self::render(page_extension.clone()).await;
 
         debug!("building router");
-        Router::new()
-            .route("/", get(BuiltPage::render))
-            .route("/script.js", get(BuiltPage::script))
-            .route("/style.css", get(BuiltPage::style))
-            .merge(api_router)
-            .layer(page_extension)
+        (
+            built_page,
+            Router::new()
+                .route("/", get(BuiltPage::render))
+                .route("/script.js", get(BuiltPage::script))
+                .route("/style.css", get(BuiltPage::style))
+                .merge(api_router)
+                .layer(page_extension),
+        )
     }
 
     async fn render(page: Extension<Arc<Mutex<Self>>>) -> Markup {
@@ -117,7 +121,7 @@ impl BuiltPage {
                     if page.lock().await.used_globals.contains(&id) {
                         return;
                     }
-                    if let Some(component_globals) = render_context::global_store().get(id).await {
+                    if let Some(component_globals) = render_context::global_store().get(&id).await {
                         if let Some(style) = &component_globals.style {
                             page.lock().await.stylesheet.add(style);
                         }
@@ -259,6 +263,6 @@ pub trait RouterPageExt {
 #[async_trait]
 impl RouterPageExt for Router {
     async fn attach_page(self, path: &str, page: Page) -> Self {
-        BuiltPage::new(page, path).await
+        BuiltPage::new(page, path).await.1
     }
 }

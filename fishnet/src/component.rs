@@ -22,25 +22,6 @@ use maud::Markup;
 use std::{fmt::Debug, marker::PhantomData, ops::Deref};
 use tower_service::Service;
 
-/// create a new component.
-///
-/// it is highly recommended to use this macro instead of using a [`Component`] struct directly.
-/// for uniquely identifying components, they require unique ids. this macro will automatically
-/// handle that for you.
-
-// internally create a zero-sized struct with the name of the component. this is done to
-// hopefully give the user a warning if they don't give their component a PascalCase
-// name since the component name affects the css class name generation >:3
-#[macro_export]
-macro_rules! component {
-    ($name:ident) => {{
-        #[allow(dead_code)]
-        struct $name;
-        $crate::component::Component::new(stringify!($name), $crate::const_nanoid!())
-    }};
-}
-pub use component;
-
 #[derive(Debug, Clone)]
 pub struct ComponentState<ST>
 where
