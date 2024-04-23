@@ -362,10 +362,15 @@ macro_rules! script {
 ///     component::prelude::*
 /// };
 ///
+/// #[component]
+/// async fn my_awesome_component() {
+///     html!{
+///         "Hello World"
+///     }
+/// }
+///
 /// Page::new("example").with_body(|| async {
-///     c!(component!(MyAwesomeComponent).render(|_| async {
-///             html!{ "Hello World!" }
-///      }.boxed()))
+///     c!(my_awesome_component())
 /// }.boxed());
 /// ```
 ///

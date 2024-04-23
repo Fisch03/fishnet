@@ -1,0 +1,7 @@
+error: the state macro can only be used from inside a component! consider annotating your function with '#[component]' or '#[dyn_component]'
+ --> tests/ui/component/state_outside_component.rs:6:5
+  |
+6 |     state!(Arc<MyState>);
+  |     ^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `state` (in Nightly builds, run with -Z macro-backtrace for more info)

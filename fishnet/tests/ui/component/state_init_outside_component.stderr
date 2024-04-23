@@ -1,0 +1,7 @@
+error: the state_init macro can only be used from inside a component! consider annotating your function with '#[component]' or '#[dyn_component]'
+ --> tests/ui/component/state_init_outside_component.rs:6:5
+  |
+6 |     state_init!(Arc<MyState>);
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `state_init` (in Nightly builds, run with -Z macro-backtrace for more info)

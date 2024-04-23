@@ -18,7 +18,7 @@
 </code></pre></div>
 <p>all selectors are relative to the root class used while rendering the resulting <a href="../../css/struct.StyleFragment.html" title="struct fishnet::css::StyleFragment"><code>StyleFragment</code></a>. therefore <code>&gt; div</code> will only select its direct children that are <code>div</code>s
 and <code>*</code> will select all children of the root class</p>
-<h4 id="the-issue-with-em-ex-and-color-hex-values"><a class="doc-anchor" href="#the-issue-with-em-ex-and-color-hex-values">§</a>the issue with em, ex and color hex values</h4>
+<h4 id="the-issue-with-em-ex-and-color-hex-values"><a class="doc-anchor" href="#the-issue-with-em-ex-and-color-hex-values">§</a>the issue with <code>em</code>, <code>ex</code> and color hex values</h4>
 <p>due to the way rust syntax works, everytime you have a number followed by the letter <code>e</code>
 (e.g. <code>#2effff</code>, <code>1em</code>, …), it will be interpreted as an exponential number and result in a
 compile error. in these special cases you can use a string literal and it will be automatically
@@ -38,7 +38,7 @@ if you want a string that matches these conditions to stay as a string, you can 
     string-with-em: &quot;&quot;&quot;1em&quot;&quot;&quot;;         /* this will become a normal string */
 }
 </code></pre></div><h4 id="double-class-selectors-and-other-special-cases"><a class="doc-anchor" href="#double-class-selectors-and-other-special-cases">§</a>double class selectors and other special cases</h4>
-<p>in special cases like <code>.root-class.other-class</code> (e.g. both classes on the same element), cou
+<p>in special cases like <code>.root-class.other-class</code> (e.g. both classes on the same element), you
 can refer to the root class using <code>&amp;</code>:</p>
 <div class="example-wrap"><pre class="language-css"><code>css! {
     &amp;.other-class {

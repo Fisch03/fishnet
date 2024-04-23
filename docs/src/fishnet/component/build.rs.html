@@ -222,6 +222,8 @@
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>axum::{Extension, Router};
 <span class="kw">use </span>futures::future::{BoxFuture, FutureExt};
@@ -358,92 +360,94 @@
     }
 }
 
-<span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>tests {
-    <span class="kw">use </span><span class="kw">crate</span>::component::prelude::<span class="kw-2">*</span>;
-    <span class="kw">use </span><span class="kw">crate</span>::component::render::ContentType;
+<span class="comment">/*
+#[cfg(test)]
+mod tests {
+    use crate::component::prelude::*;
+    use crate::component::render::ContentType;
 
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>test_build_minimal() {
-        <span class="kw">let </span>result = <span class="macro">component!</span>(TestComponent)
-            .render(|<span class="kw">_</span>| {
-                <span class="kw">async </span>{
-                    <span class="macro">html!</span> { <span class="string">"test" </span>}
+    #[tokio::test]
+    async fn test_build_minimal() {
+        let result = component!(TestComponent)
+            .render(|_| {
+                async {
+                    html! { "test" }
                 }
                 .boxed()
             })
-            .build(<span class="string">"/"</span>)
-            .<span class="kw">await</span>;
+            .build("/")
+            .await;
 
-        <span class="macro">assert_eq!</span>(result.built_component.name(), <span class="string">"TestComponent"</span>);
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+        assert_eq!(result.built_component.name(), "TestComponent");
+        assert!(matches!(
             result.built_component.content.as_ref(),
-            ContentType::Static(<span class="kw">_</span>)
+            ContentType::Static(_)
         ));
 
-        <span class="macro">assert!</span>(result.runner.is_none());
-        <span class="macro">assert!</span>(result.router.is_none());
+        assert!(result.runner.is_none());
+        assert!(result.router.is_none());
     }
 
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>test_build_minimal_dynamic() {
-        <span class="kw">let </span>result = <span class="macro">component!</span>(TestComponent)
-            .render_dynamic(|<span class="kw">_</span>| {
-                <span class="kw">async </span>{
-                    <span class="macro">html!</span> { <span class="string">"test" </span>}
+    #[tokio::test]
+    async fn test_build_minimal_dynamic() {
+        let result = component!(TestComponent)
+            .render_dynamic(|_| {
+                async {
+                    html! { "test" }
                 }
                 .boxed()
             })
-            .build(<span class="string">"/"</span>)
-            .<span class="kw">await</span>;
+            .build("/")
+            .await;
 
-        <span class="macro">assert_eq!</span>(result.built_component.name(), <span class="string">"TestComponent"</span>);
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+        assert_eq!(result.built_component.name(), "TestComponent");
+        assert!(matches!(
             result.built_component.content.as_ref(),
-            ContentType::Dynamic(<span class="kw">_</span>)
+            ContentType::Dynamic(_)
         ));
 
-        <span class="macro">assert!</span>(result.runner.is_none());
-        <span class="macro">assert!</span>(result.router.is_none());
+        assert!(result.runner.is_none());
+        assert!(result.router.is_none());
     }
 
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>test_build() {
-        <span class="kw">use </span>axum::routing::get;
+    #[tokio::test]
+    async fn test_build() {
+        use axum::routing::get;
 
-        <span class="kw">let </span>result = <span class="macro">component!</span>(TestComponent)
-            .add_script(ScriptType::External(<span class="string">"test.js"</span>.to_string()))
-            .route(<span class="string">"/route"</span>, get(|| <span class="kw">async </span>{ <span class="string">"test" </span>}))
-            .render(|<span class="kw">_</span>| {
-                <span class="kw">async </span>{
-                    <span class="macro">html!</span> { <span class="string">"test" </span>}
+        let result = component!(TestComponent)
+            .add_script(ScriptType::External("test.js".to_string()))
+            .route("/route", get(|| async { "test" }))
+            .render(|_| {
+                async {
+                    html! { "test" }
                 }
                 .boxed()
             })
-            .build(<span class="string">"/"</span>)
-            .<span class="kw">await</span>;
+            .build("/")
+            .await;
 
-        <span class="macro">assert_eq!</span>(result.built_component.name(), <span class="string">"TestComponent"</span>);
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+        assert_eq!(result.built_component.name(), "TestComponent");
+        assert!(matches!(
             result.built_component.content.as_ref(),
-            ContentType::Static(<span class="kw">_</span>)
+            ContentType::Static(_)
         ));
-        <span class="macro">assert!</span>(result.router.is_some());
+        assert!(result.router.is_some());
 
-        <span class="comment">/* it would be nice to verify the global store here
+        /* it would be nice to verify the global store here
         assert_eq!(result.scripts.len(), 1);
         assert_eq!(
             result.scripts[0],
             ScriptType::External("test.js".to_string())
         );
         */
-    </span>}
+    }
 
-    <span class="comment">/*
+    /*
     #[test]
     fn test_nested_dynamic() {
         todo!();
     }
     */
-</span>}
-</code></pre></div></section></main></body></html>
+}
+*/
+</span></code></pre></div></section></main></body></html>

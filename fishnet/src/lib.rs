@@ -59,23 +59,19 @@
 //!   component::prelude::*,
 //! };
 //!
-//! fn my_awesome_button(label: &str, alert: &str) -> impl BuildableComponent {
-//!     // convert the str references to owned strings
-//!     let state = (
-//!         label.to_string(),
-//!         format!("alert('{}')", alert)
-//!     );
+//! #[component] //make this function a component
+//! fn my_awesome_button(label: &str, alert: &str) {
+//!     //use the state_init! parameter to save the state for future renders
+//!     let state = state_init!(Arc::new(
+//!         (
+//!             label.to_string(),
+//!             format!("alert('{}')", alert)
+//!         )
+//!     ));
 //!
-//!     // create a new 'button' component
-//!     component!(Button)
-//!     //add our parameters as state to the component
-//!     .with_state(Arc::new(state))
-//!     // render the button
-//!     .render(|state| async move {
-//!         html! {
-//!            button onclick=(state.1) { (state.0) }
-//!        }
-//!     }.boxed())
+//!     html! {
+//!         button onclick=(state.1) { (state.0) }
+//!     }
 //! }
 //!
 //! Page::new("example").with_body(|| async {
@@ -87,8 +83,14 @@
 //! }.boxed());
 //! ```
 //! let's break down what's happening here:
-//! the `my_awesome_button` function is a function that constructs a new component with the contents of the button.
-//! since the render function may run multiple times, we need to convert the passed references to owned strings and `move` them into the closure.
+//! the `my_awesome_button` function is decorated with [`#[component]`](`macro@component`). this makes
+//! it a component. inside, we first need to create a new component state to save the parameters
+//! for future use. this is done using either the [`state!`] or [`state_init!`] macros. the
+//! [`state!`] macro will just take in the type of the state and use its
+//! [`Default`] implementation to initialize it. if you want to use the
+//! functions parameters to initialize the state, you need to use the [`state_init`] macro. you can
+//! put an arbitrary code block in it and its return value will be used as the components state.
+//! **this is the only place where you can access the function parameters!**
 //!
 //! on the page itself, we use the `c!` macro to add the component to the page. this handles all the behind the scenes work of building and rendering the component, and caching it for future use.
 //! in this scenario, the `my_awesome_button` function and the components render function are both run exactly once over the lifetime of the whole page, even if the page is visited multiple times.
@@ -121,8 +123,7 @@
 //! - [state](#dynamic-components) - components can have state, which can be used to store data over the lifetime of the component.
 //!  
 //! this means, that in the end the tradeoff is up to the use-case. using a simple function as a component is usually fine (and even recommended!) for the smaller parts of your page.
-//! because of this, fishnet also provides the [`style!`] and [`script!`] macros for adding component independent css and javascript to your functions.
-//! these work mostly identical to their [component counterparts](#styling)
+//! because of this, the [`style!`] and [`script!`] macros also work outside of components!
 //!
 //! ## dynamic components
 //! the components you used until now were all statically rendered. this means, that their
@@ -133,18 +134,16 @@
 //! ```rust
 //! use fishnet::component::prelude::*;
 //!
-//! fn visit_counter() -> impl BuildableComponent {
-//!     let count = Arc::new(Mutex::new(0));
+//! #[dyn_component]
+//! async fn visit_counter() {
+//!     let count = state!(Arc<Mutex<usize>>);
 //!    
-//!     component!(VisitCounter)
-//!         .with_state(count)
-//!         .render_dynamic(|count| async move {
-//!             let mut count = count.lock().await;
-//!             *count += 1;
-//!             html! {
-//!                 "you are visitor no. " (count) "!"
-//!             }
-//!         }.boxed())
+//!     let mut count = count.lock().await;
+//!     *count += 1;
+//!
+//!     html! {
+//!         "you are visitor no. " (count) "!"
+//!     }
 //! }
 //! ```
 //! there is one important performance consideration to using dynamic components: **using a dynamic component
@@ -163,20 +162,18 @@
 //! ```rust
 //! use fishnet::component::prelude::*;
 //!
-//! fn awesome_htmx_btn() -> impl BuildableComponent {
-//!     async fn click_endpoint(state: Extension<ComponentState<()>>) -> Markup {
+//! #[component]
+//! fn awesome_htmx_btn() {
+//!     #[route("/", POST)]
+//!     async fn click_endpoint(state: Extension<_>) -> Markup {
 //!         html! { "hiiii!!" }
 //!     }
 //!
-//!     component!(HtmxButton)
-//!         .route("/", routing::post(click_endpoint))
-//!         .render(|state| async move {
-//!             html! {
-//!                 button hx-post=(state.endpoint()) hx-swap="outerHTML" {
-//!                     "click me"
-//!                 }
-//!             }
-//!         }.boxed())
+//!     html! {
+//!         button hx-post=(state.endpoint()) hx-swap="outerHTML" {
+//!             "click me"
+//!         }
+//!     }
 //! }
 //! ```
 //! as you can see, the components state also gets passed to the components routes as an axum
@@ -193,9 +190,9 @@
 //! ```rust
 //! use fishnet::component::prelude::*;
 //!
-//! fn styled_component() -> impl BuildableComponent {
-//!     component!(StyledComponent)
-//!         .style(css! {
+//! #[component]
+//! fn styled_component() {
+//!         style!(css! {
 //!             background-color: red;
 //!
 //!             > div {
@@ -209,12 +206,11 @@
 //!                     display: none;
 //!                 }
 //!             }
-//!         })
-//!         .render(|_| async {
-//!             html!{
+//!         });
+//!
+//!         html!{
 //!                 //whatever...
-//!             }
-//!         }.boxed())
+//!         }
 //! }
 //! ```
 //!
@@ -227,7 +223,7 @@
 //! component. this also means that a selector like `*` will only affect the components children.
 //!
 //! if you want to style a specific child component, its class name will always be derived from the
-//! type you put into the [`component!`](crate::component!) macro (e.g. "SomeChild" becomes
+//! type you put into the [`component!`](macro@component) macro (e.g. "SomeChild" becomes
 //! "some-child"). this also means that conflicts can occur if you use the same name multiple
 //! times, choose your names wisely...
 //!
@@ -319,8 +315,42 @@ pub mod js;
 /// this will only work if the `&` is the first character of the selector!
 pub use fishnet_macros::css;
 
-/// TODO: document this
+/// attribute macro for creating new components
+///
+/// it is highly recommended to use this instead of constructing a [`Component`](component::Component) manually.
+///
+/// you use this to decorate any async function that returns a [`Markup`] and it will be turned into a [`Component`](component::Component) for you.
+/// you can use the [`style!`] and [`script!`] macros anywhere in the function to add css and javascript to the component.
+/// there are two macros to add state to the component - [`state!`] and [`state_init!`]. state
+/// takes in a type and uses the [`std::default::Default`] implementation to create the initial
+/// state. if you want some more control like initializing the state from function parameters, you
+/// can use the state_init! macro instead.
+///
+/// ```rust
+/// use fishnet::component::prelude::*;
+/// use std::sync::Arc;
+///
+/// #[component]
+/// async fn my_component(some_number: usize) {
+///     let state = state_init!(Arc::new(some_number));
+///
+///     style!(css! {
+///         color: red;
+///     });
+///
+///     script!("console.log('hello from js!');");
+///
+///     html! {
+///         "hello world!"
+///     }
+/// }
+///```
 pub use fishnet_macros::component;
+
+/// same as [`component`](macro@component), but forces the component to be rerendered each page visit.
+///
+/// it should be noted that this also forces all parent components to be rendered dynamically!
+pub use fishnet_macros::dyn_component;
 
 #[doc(hidden)]
 pub use fishnet_macros::const_nanoid;

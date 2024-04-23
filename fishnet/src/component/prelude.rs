@@ -4,7 +4,9 @@ pub use crate::c;
 
 // components itself
 pub use super::{BuildableComponent, ComponentState};
-//pub use crate::component::component;
+
+pub use super::fake_macros::*;
+pub use crate::{component, dyn_component};
 
 // html, js, css
 pub use crate::js::ScriptType;

@@ -262,6 +262,10 @@
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A visitable page on the [`Website`](crate::website::Website).
 
 </span><span class="kw">use </span>async_trait::async_trait;
@@ -305,7 +309,7 @@
 
 <span class="kw">impl </span>BuiltPage {
     <span class="attr">#[instrument(name = <span class="string">"Page::build"</span>, skip_all, fields(name = %page.name))]
-    </span><span class="kw">async fn </span>new(page: Page, path: <span class="kw-2">&amp;</span>str) -&gt; Router {
+    </span><span class="kw">async fn </span>new(page: Page, path: <span class="kw-2">&amp;</span>str) -&gt; (Arc&lt;Mutex&lt;BuiltPage&gt;&gt;, Router) {
         <span class="kw">let </span>base_path = path.trim_end_matches(<span class="string">'/'</span>);
         <span class="kw">let </span>script_path = <span class="macro">format!</span>(<span class="string">"{}/script.js"</span>, base_path);
         <span class="kw">let </span>style_path = <span class="macro">format!</span>(<span class="string">"{}/style.css"</span>, base_path);
@@ -344,19 +348,23 @@
         };
 
         <span class="kw">let </span>api_router = built_page.api_router.make_router().<span class="kw">await</span>;
-        <span class="kw">let </span>page_extension = Extension(Arc::new(Mutex::new(built_page)));
+        <span class="kw">let </span>built_page = Arc::new(Mutex::new(built_page));
+        <span class="kw">let </span>page_extension = Extension(built_page.clone());
 
         <span class="comment">// pre-render the page to save request time. this is obviously not guaranteed to prerender all the components, but it should get most of them.
         </span><span class="macro">debug!</span>(<span class="string">"performing page pre-render"</span>);
         <span class="kw">let _ </span>= <span class="self">Self</span>::render(page_extension.clone()).<span class="kw">await</span>;
 
         <span class="macro">debug!</span>(<span class="string">"building router"</span>);
-        Router::new()
-            .route(<span class="string">"/"</span>, get(BuiltPage::render))
-            .route(<span class="string">"/script.js"</span>, get(BuiltPage::script))
-            .route(<span class="string">"/style.css"</span>, get(BuiltPage::style))
-            .merge(api_router)
-            .layer(page_extension)
+        (
+            built_page,
+            Router::new()
+                .route(<span class="string">"/"</span>, get(BuiltPage::render))
+                .route(<span class="string">"/script.js"</span>, get(BuiltPage::script))
+                .route(<span class="string">"/style.css"</span>, get(BuiltPage::style))
+                .merge(api_router)
+                .layer(page_extension),
+        )
     }
 
     <span class="kw">async fn </span>render(page: Extension&lt;Arc&lt;Mutex&lt;<span class="self">Self</span>&gt;&gt;&gt;) -&gt; Markup {
@@ -381,7 +389,7 @@
                     <span class="kw">if </span>page.lock().<span class="kw">await</span>.used_globals.contains(<span class="kw-2">&amp;</span>id) {
                         <span class="kw">return</span>;
                     }
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(component_globals) = render_context::global_store().get(id).<span class="kw">await </span>{
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(component_globals) = render_context::global_store().get(<span class="kw-2">&amp;</span>id).<span class="kw">await </span>{
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(style) = <span class="kw-2">&amp;</span>component_globals.style {
                             page.lock().<span class="kw">await</span>.stylesheet.add(style);
                         }
@@ -523,7 +531,7 @@
 <span class="attr">#[async_trait]
 </span><span class="kw">impl </span>RouterPageExt <span class="kw">for </span>Router {
     <span class="kw">async fn </span>attach_page(<span class="self">self</span>, path: <span class="kw-2">&amp;</span>str, page: Page) -&gt; <span class="self">Self </span>{
-        BuiltPage::new(page, path).<span class="kw">await
+        BuiltPage::new(page, path).<span class="kw">await</span>.<span class="number">1
     </span>}
 }
 </code></pre></div></section></main></body></html>

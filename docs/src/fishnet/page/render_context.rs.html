@@ -380,6 +380,12 @@
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>axum::routing::Router;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>maud::{html, Markup};
@@ -420,7 +426,8 @@
     <span class="kw">pub </span>style: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::css::RenderedStyle&gt;,
 }
 
-<span class="kw">pub struct </span>GlobalStore(Mutex&lt;HashMap&lt;String, Arc&lt;GlobalStoreEntry&gt;&gt;&gt;);
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>GlobalStore(Mutex&lt;HashMap&lt;String, Arc&lt;GlobalStoreEntry&gt;&gt;&gt;);
 <span class="kw">impl </span>GlobalStore {
     <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(Mutex::new(HashMap::new()))
@@ -443,8 +450,8 @@
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>get&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, id: String) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;GlobalStoreEntry&gt;&gt; {
-        <span class="self">self</span>.<span class="number">0</span>.lock().<span class="kw">await</span>.get(<span class="kw-2">&amp;</span>id).cloned()
+    <span class="kw">pub async fn </span>get&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;GlobalStoreEntry&gt;&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.lock().<span class="kw">await</span>.get(id).cloned()
     }
 }
 
@@ -743,10 +750,15 @@
 ///     component::prelude::*
 /// };
 ///
+/// #[component]
+/// async fn my_awesome_component() {
+///     html!{
+///         "Hello World"
+///     }
+/// }
+///
 /// Page::new("example").with_body(|| async {
-///     c!(component!(MyAwesomeComponent).render(|_| async {
-///             html!{ "Hello World!" }
-///      }.boxed()))
+///     c!(my_awesome_component())
 /// }.boxed());
 /// ```
 ///

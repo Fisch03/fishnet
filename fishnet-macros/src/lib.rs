@@ -16,6 +16,33 @@ const ID_ALPHABET: [char; 52] = [
 
 #[proc_macro]
 #[proc_macro_error]
+pub fn fake_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input: TokenStream = input.into();
+
+    let next = input.into_iter().next();
+    match next {
+        Some(TokenTree::Ident(ident)) => {
+            let error = format!(
+                "the {} macro can only be used from inside a component! consider annotating your function with '#[component]' or '#[dyn_component]'",
+                ident.to_string()
+            );
+            let out = quote!(
+                #[macro_export]
+                macro_rules! #ident {
+                    ($($tt:tt)*) => {
+                        compile_error!(#error);
+                    }
+                }
+                pub use #ident;
+            );
+            out.into()
+        }
+        _ => abort!(next, "expected literal"),
+    }
+}
+
+#[proc_macro]
+#[proc_macro_error]
 pub fn css(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input: TokenStream = input.into();
 
@@ -48,7 +75,24 @@ pub fn component(
             #component
     );
 
-    dbg!(out.to_string());
+    out.into()
+}
+
+#[proc_macro_attribute]
+#[proc_macro_error]
+pub fn dyn_component(
+    _attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let item: TokenStream = item.into();
+
+    let component = component::parse_dyn(item);
+
+    let out = quote!(
+            extern crate fishnet;
+
+            #component
+    );
 
     out.into()
 }

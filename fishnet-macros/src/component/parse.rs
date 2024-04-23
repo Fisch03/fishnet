@@ -7,6 +7,7 @@ use quote::{quote, ToTokens, TokenStreamExt};
 pub struct ParsedComponent {
     name: String,
     args: TokenStream,
+    is_dyn: bool,
     state: Option<ComponentState>,
     style: Option<ComponentStyle>,
     script: ComponentScript,
@@ -14,11 +15,12 @@ pub struct ParsedComponent {
 }
 
 impl ParsedComponent {
-    fn new(name: &str, args: TokenStream) -> Self {
+    fn new(name: &str, args: TokenStream, is_dyn: bool) -> Self {
         Self {
             name: name.to_string(),
             args,
 
+            is_dyn,
             state: None,
             style: None,
             script: ComponentScript {
@@ -41,12 +43,21 @@ impl ToTokens for ParsedComponent {
 
         let (init_state, state, state_ident) = match &self.state {
             Some(state) => {
-                let type_name = &state.type_name;
                 let ident = Ident::new(&state.ident, Span::call_site());
+                let initializer = match &state.initializer {
+                    ComponentStateType::DefaultState(type_name) => {
+                        quote! {
+                            let #ident: #type_name = std::default::Default::default();
+                        }
+                    }
+                    ComponentStateType::CustomState(initializer) => {
+                        quote! {
+                            let #ident = { #initializer };
+                        }
+                    }
+                };
                 (
-                    quote! {
-                        let #ident: #type_name = std::default::Default::default();
-                    },
+                    initializer,
                     quote! {
                         .with_state(#ident)
                     },
@@ -84,14 +95,25 @@ impl ToTokens for ParsedComponent {
             None => TokenStream::new(),
         };
         let code = &self.render.code;
-        let render = quote! {
-            .render(|#state_ident| async move {
-                #code
+        let render = match self.is_dyn {
+            true => quote! {
+                .render(|#state_ident| async move {
+                    #code
 
-                html! {
-                    #markup
-                }
-            }.boxed())
+                    html! {
+                        #markup
+                    }
+                }.boxed())
+            },
+            false => quote! {
+                .render_dynamic(|#state_ident| async move {
+                    #code
+
+                    html! {
+                        #markup
+                    }
+                }.boxed())
+            },
         };
 
         tokens.extend(quote! {
@@ -110,8 +132,13 @@ impl ToTokens for ParsedComponent {
 
 #[derive(Debug)]
 struct ComponentState {
-    type_name: TokenStream,
     ident: String,
+    initializer: ComponentStateType,
+}
+#[derive(Debug)]
+enum ComponentStateType {
+    DefaultState(TokenStream),
+    CustomState(TokenStream),
 }
 
 #[derive(Debug)]
@@ -138,7 +165,11 @@ enum MacroTypes {
 }
 
 pub(crate) fn parse(input: TokenStream) -> ParsedComponent {
-    Parser::new(input).parse()
+    Parser::new(input, false).parse()
+}
+
+pub(crate) fn parse_dyn(input: TokenStream) -> ParsedComponent {
+    Parser::new(input, true).parse()
 }
 
 struct Parser {
@@ -177,14 +208,12 @@ fn to_pascal(name: &str) -> String {
 }
 
 impl Parser {
-    fn new(input: TokenStream) -> Self {
+    fn new(input: TokenStream, is_dyn: bool) -> Self {
         let mut input = input.into_iter();
 
         let next = input.next();
         match next {
-            Some(TokenTree::Ident(ref ident)) if ident.to_string() == "fn" => {
-                abort!(next.unwrap(), "function has to be async")
-            }
+            Some(TokenTree::Ident(ref ident)) if ident.to_string() == "fn" => {}
             Some(TokenTree::Ident(ref ident)) if ident.to_string() == "async" => {
                 input.next();
             }
@@ -213,7 +242,7 @@ impl Parser {
 
         Self {
             input: fn_inner.into_iter(),
-            parsed: ParsedComponent::new(&name, fn_args),
+            parsed: ParsedComponent::new(&name, fn_args, is_dyn),
             last_ident: None,
         }
     }
@@ -257,16 +286,21 @@ impl Parser {
                         let next_inner = self.peek();
                         match next_inner {
                             Some(TokenTree::Ident(ref ident))
-                                if ident.to_string().as_str() == "state" =>
+                                if ident.to_string().as_str() == "state"
+                                    || ident.to_string() == "state_init" =>
                             {
-                                collected.append(next_inner.unwrap());
+                                collected.append(next_inner.clone().unwrap());
                                 self.advance();
 
                                 let next = self.peek();
                                 match next {
                                     Some(TokenTree::Punct(ref punct)) if punct.as_char() == '!' => {
                                         self.advance();
-                                        self.parse_state();
+                                        if ident.to_string() == "state" {
+                                            self.parse_state();
+                                        } else {
+                                            self.parse_custom_state();
+                                        }
                                     }
                                     _ => {
                                         for token in collected {
@@ -338,7 +372,7 @@ impl Parser {
         }
 
         if self.parsed.state.is_some() {
-            emit_error!(state, "state! macro already used!");
+            emit_error!(state, "state!/state_init! macro already used!");
             return;
         }
 
@@ -347,8 +381,37 @@ impl Parser {
             .clone()
             .unwrap_or_else(|| "state".to_string());
         self.parsed.state = Some(ComponentState {
-            type_name: state,
             ident,
+            initializer: ComponentStateType::DefaultState(state),
+        });
+    }
+
+    fn parse_custom_state(&mut self) {
+        let state;
+
+        match self.peek() {
+            Some(TokenTree::Group(ref group)) => {
+                self.advance();
+                state = group.stream();
+            }
+            _ => {
+                emit_error!(self.peek(), "expected state_init! macro to have a block");
+                return;
+            }
+        }
+
+        if self.parsed.state.is_some() {
+            emit_error!(state, "state!/state_init! macro already used!");
+            return;
+        }
+
+        let ident = self
+            .last_ident
+            .clone()
+            .unwrap_or_else(|| "state".to_string());
+        self.parsed.state = Some(ComponentState {
+            ident,
+            initializer: ComponentStateType::CustomState(state),
         });
     }
 

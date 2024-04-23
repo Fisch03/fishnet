@@ -20,6 +20,7 @@ async-trait = "0.1"
 [dev-dependencies]
 pretty_assertions = "1.4"
 unindent = "0.2"
+trybuild = "1"
 
 [features]
 default = []

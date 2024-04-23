@@ -6,6 +6,12 @@ use pretty_assertions::assert_eq;
 #[cfg(test)]
 use unindent::unindent;
 
+#[test]
+fn test_ui() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/ui/css/*.rs");
+}
+
 fn test_match(style: fishnet::css::StyleFragment, expected: &str) {
     let mut stylesheet = fishnet::css::Stylesheet::new();
     stylesheet.add(&style.render("component"));

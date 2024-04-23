@@ -7,6 +7,12 @@ use std::sync::Arc;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
+#[test]
+fn test_ui() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/ui/component/*.rs");
+}
+
 #[derive(Default)]
 struct TestComponentState {
     some_val: usize,
@@ -44,6 +50,9 @@ async fn test_component() {
         "<div class=\"testing-component\"><div>Hello, world! 0</div></div>"
     );
 
+    assert!(result.runner.is_none());
+    assert!(result.router.is_none());
+
     let component_entry = global_store()
         .get(result.built_component.id())
         .await
@@ -67,7 +76,7 @@ async fn test_component() {
 async fn test_component_args() {
     #[component]
     async fn testing_component(some_val: usize) {
-        let state = state!(Arc<Mutex<TestComponentState>>);
+        let state = state_init!(Arc::new(TestComponentState { some_val }));
 
         style!(css! {
             color: #f00000;
@@ -75,8 +84,6 @@ async fn test_component_args() {
 
         script!("console.log('hello world');");
         script!(r#"console.log("goodbye world");"#);
-
-        let state = state.lock().await;
 
         html! {
             div {
@@ -92,4 +99,38 @@ async fn test_component_args() {
         render.0,
         "<div class=\"testing-component\"><div>Hello, world! 42</div></div>"
     );
+}
+
+#[tokio::test]
+async fn test_component_state_ident() {
+    #[component]
+    async fn testing_component() {
+        let count = state!(Arc<Mutex<TestComponentState>>>);
+
+        let mut count = count.lock().await;
+        *count += 1;
+
+        html! {
+            (count)
+        }
+    }
+
+    let result = testing_component().build("/").await;
+}
+
+#[tokio::test]
+async fn test_component_route_post() {
+    #[component]
+    async fn testing_component() {
+        let state = state!(Arc<TestComponentState>);
+
+        #[route("/", POST)]
+        async fn root(state: Extension<_>) -> Markup {
+            html! {
+                (state.some_val)
+            }
+        }
+    }
+
+    let result = testing_component().build("/").await;
 }

@@ -22,13 +22,17 @@
 <a href="#22" id="22">22</a>
 <a href="#23" id="23">23</a>
 <a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! commonly used imports for building components.
 
 </span><span class="kw">pub use </span><span class="kw">crate</span>::c;
 
 <span class="comment">// components itself
 </span><span class="kw">pub use super</span>::{BuildableComponent, ComponentState};
-<span class="kw">pub use </span><span class="kw">crate</span>::component::component;
+
+<span class="kw">pub use </span><span class="kw">super</span>::fake_macros::<span class="kw-2">*</span>;
+<span class="kw">pub use crate</span>::{component, dyn_component};
 
 <span class="comment">// html, js, css
 </span><span class="kw">pub use </span><span class="kw">crate</span>::js::ScriptType;
