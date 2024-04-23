@@ -1,5 +1,7 @@
 use litrs::StringLit;
-use proc_macro2::{Delimiter, Ident, Literal, Span, TokenStream, TokenTree};
+use proc_macro2::{
+    token_stream::IntoIter, Delimiter, Ident, Literal, Span, TokenStream, TokenTree,
+};
 use proc_macro_error::{abort, abort_call_site, emit_error};
 use quote::{quote, ToTokens, TokenStreamExt};
 
@@ -12,6 +14,7 @@ pub struct ParsedComponent {
     style: Option<ComponentStyle>,
     script: ComponentScript,
     render: ComponentRender,
+    routes: Vec<ComponentRoute>,
 }
 
 impl ParsedComponent {
@@ -30,6 +33,7 @@ impl ParsedComponent {
                 code: TokenStream::new(),
                 markup: None,
             },
+            routes: Vec::new(),
         }
     }
 }
@@ -47,7 +51,7 @@ impl ToTokens for ParsedComponent {
                 let initializer = match &state.initializer {
                     ComponentStateType::DefaultState(type_name) => {
                         quote! {
-                            let #ident: #type_name = std::default::Default::default();
+                            let #ident = <#type_name  as Default>::default();
                         }
                     }
                     ComponentStateType::CustomState(initializer) => {
@@ -69,6 +73,30 @@ impl ToTokens for ParsedComponent {
                 TokenStream::new(),
                 Ident::new("_", Span::call_site()),
             ),
+        };
+
+        let routes = self.routes.iter().map(|route| {
+            let path = &route.path;
+            let handler_name = &route.handler_name;
+            let method = &route.axum_method;
+
+            quote! {
+                .route(#path, routing::#method(#handler_name))
+            }
+        });
+        let routes = quote! {
+            #(#routes)*
+        };
+
+        let route_handlers = self.routes.iter().map(|route| {
+            let handler = &route.handler;
+
+            quote! {
+                #handler
+            }
+        });
+        let route_handlers = quote! {
+            #(#route_handlers)*
         };
 
         let style = match &self.style {
@@ -96,7 +124,7 @@ impl ToTokens for ParsedComponent {
         };
         let code = &self.render.code;
         let render = match self.is_dyn {
-            true => quote! {
+            false => quote! {
                 .render(|#state_ident| async move {
                     #code
 
@@ -105,7 +133,7 @@ impl ToTokens for ParsedComponent {
                     }
                 }.boxed())
             },
-            false => quote! {
+            true => quote! {
                 .render_dynamic(|#state_ident| async move {
                     #code
 
@@ -120,8 +148,11 @@ impl ToTokens for ParsedComponent {
             fn #name(#fn_args) -> impl BuildableComponent {
                 #init_state
 
+                #route_handlers
+
                 fishnet::component::Component::new(#name_pascal, fishnet::const_nanoid!())
                     #state
+                    #routes
                     #style
                     #script
                     #render
@@ -155,6 +186,14 @@ struct ComponentScript {
 struct ComponentRender {
     code: TokenStream,
     markup: Option<TokenStream>,
+}
+
+#[derive(Debug)]
+struct ComponentRoute {
+    path: String,
+    handler_name: Ident,
+    handler: TokenStream,
+    axum_method: Ident,
 }
 
 #[derive(Debug)]
@@ -272,6 +311,13 @@ impl Parser {
                         collected.append(next.unwrap());
                         self.advance();
 
+                        match self.peek() {
+                            Some(TokenTree::Ident(ref ident)) if ident.to_string() == "mut" => {
+                                collected.append(self.next().unwrap())
+                            }
+                            _ => {}
+                        };
+
                         let ident = self.next().unwrap_or_else(|| {
                             abort_call_site!("unexpected end of input after 'let'")
                         });
@@ -314,16 +360,52 @@ impl Parser {
                                     }
                                 }
                             }
-                            Some(_) => {
+                            Some(next_token) => {
                                 for token in collected {
                                     self.add_to_code(token);
                                 }
+                                self.add_to_code(next_token);
                             }
                             None => break,
                         }
                     }
                     _ => self.add_to_code(next.unwrap()),
                 },
+                Some(TokenTree::Punct(ref punct)) if punct.as_char() == '#' => {
+                    let mut collected = TokenStream::new();
+                    collected.append(next.unwrap());
+                    self.advance();
+
+                    let next = self.next();
+                    match next {
+                        Some(TokenTree::Group(ref group))
+                            if group.delimiter() == Delimiter::Bracket =>
+                        {
+                            collected.append(next.clone().unwrap());
+
+                            let mut inner = group.stream().into_iter();
+                            let next = inner.next();
+                            match next {
+                                Some(TokenTree::Ident(ref ident))
+                                    if ident.to_string() == "route" =>
+                                {
+                                    self.parse_route(inner);
+                                }
+                                _ => {
+                                    for token in collected {
+                                        self.add_to_code(token);
+                                    }
+                                }
+                            }
+                        }
+                        _ => {
+                            for token in collected {
+                                self.add_to_code(token);
+                            }
+                            break;
+                        }
+                    }
+                }
                 Some(_) => self.add_to_code(next.unwrap()),
                 None => break,
             }
@@ -486,5 +568,88 @@ impl Parser {
         }
 
         self.parsed.render.markup = Some(render);
+    }
+
+    fn parse_route(&mut self, mut inner: IntoIter) {
+        let args = match inner.next() {
+            Some(TokenTree::Group(ref group)) => group.stream().into_iter().collect::<Vec<_>>(),
+            _ => {
+                emit_error!(self.peek(), "missing route path");
+                return;
+            }
+        };
+
+        let path = match args.get(0) {
+            Some(TokenTree::Literal(ref lit)) => match StringLit::try_from(lit) {
+                Ok(lit) => lit.value().to_string(),
+                Err(_) => lit.to_string(),
+            },
+            _ => {
+                emit_error!(args.get(0), "expected string literal for route path");
+                return;
+            }
+        };
+
+        let method = match args.get(2) {
+            Some(TokenTree::Ident(ref ident)) => {
+                Ident::new(&ident.to_string().to_lowercase(), Span::call_site())
+            }
+            None => Ident::new("get", Span::call_site()),
+            _ => {
+                emit_error!(args.get(2), "expected method identifier");
+                return;
+            }
+        };
+
+        let handler = self.parse_async_fn();
+
+        self.parsed.routes.push(ComponentRoute {
+            path,
+            handler_name: handler.0,
+            handler: handler.1,
+            axum_method: method,
+        });
+    }
+
+    fn parse_async_fn(&mut self) -> (Ident, TokenStream) {
+        let mut body = TokenStream::new();
+        body.append(self.expect_ident("async"));
+        body.append(self.expect_ident("fn"));
+        let name = self.expect_get_ident();
+        body.append(name.clone());
+        loop {
+            let next = self.peek();
+            match next {
+                Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
+                    body.append(group);
+                    break;
+                }
+                Some(ref token) => {
+                    body.append(token.clone());
+                    self.advance();
+                }
+                None => abort!(next, "unexpected end of input"),
+            }
+        }
+
+        (name, body)
+    }
+
+    fn expect_ident(&mut self, name: &str) -> Ident {
+        let ident = self.expect_get_ident();
+        if ident.to_string() != name {
+            abort!(ident, format!("expected '{}'", name));
+        }
+        ident
+    }
+
+    fn expect_get_ident(&mut self) -> Ident {
+        let next = self
+            .next()
+            .unwrap_or_else(|| abort_call_site!("unexpected end of input"));
+        match next {
+            TokenTree::Ident(ident) => ident,
+            _ => abort!(next, "expected identifier"),
+        }
     }
 }

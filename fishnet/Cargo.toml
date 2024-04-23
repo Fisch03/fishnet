@@ -18,6 +18,8 @@ fishnet-macros = { path = "../fishnet-macros", version = "0.1"}
 async-trait = "0.1"
 
 [dev-dependencies]
+criterion = { version = "0.5", features = ["async_tokio" ] }
+nanoid = "0.4"
 pretty_assertions = "1.4"
 unindent = "0.2"
 trybuild = "1"
@@ -29,3 +31,7 @@ minify-js = ["dep:esbuild-rs"]
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
+
+[[bench]]
+name = "rendering"
+harness = false

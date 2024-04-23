@@ -23,10 +23,10 @@ pub struct BuiltPage {
     head: Markup,
     body_renderer: Box<dyn Fn() -> BoxFuture<'static, Markup> + Send + Sync>,
 
-    pub used_globals: HashSet<String>,
-    pub components: Arc<Mutex<ComponentStore>>,
+    used_globals: HashSet<String>,
+    components: Arc<Mutex<ComponentStore>>,
 
-    pub api_path: String,
+    api_path: String,
     api_router: APIRouter,
 
     script_path: String,
@@ -41,7 +41,7 @@ pub struct BuiltPage {
 
 impl BuiltPage {
     #[instrument(name = "Page::build", skip_all, fields(name = %page.name))]
-    async fn new(page: Page, path: &str) -> (Arc<Mutex<BuiltPage>>, Router) {
+    pub async fn new(page: Page, path: &str) -> (Arc<Mutex<BuiltPage>>, Router) {
         let base_path = path.trim_end_matches('/');
         let script_path = format!("{}/script.js", base_path);
         let style_path = format!("{}/style.css", base_path);
@@ -99,7 +99,7 @@ impl BuiltPage {
         )
     }
 
-    async fn render(page: Extension<Arc<Mutex<Self>>>) -> Markup {
+    pub async fn render(page: Extension<Arc<Mutex<Self>>>) -> Markup {
         let start = std::time::Instant::now();
 
         let mut page_guard = page.lock().await;

@@ -164,11 +164,14 @@
 //!
 //! #[component]
 //! fn awesome_htmx_btn() {
+//!
 //!     #[route("/", POST)]
-//!     async fn click_endpoint(state: Extension<_>) -> Markup {
+//!     async fn click_endpoint(state: Extension<ComponentState<()>>) -> Markup {
 //!         html! { "hiiii!!" }
 //!     }
 //!
+//!     // just leave the state empty
+//!     let state = state!(());
 //!     html! {
 //!         button hx-post=(state.endpoint()) hx-swap="outerHTML" {
 //!             "click me"
@@ -241,7 +244,7 @@
 pub mod component;
 mod routes;
 
-mod page;
+pub mod page;
 #[doc(hidden)]
 pub use page::render_context::{global_store, render_component, GlobalStoreEntry};
 pub use page::Page;

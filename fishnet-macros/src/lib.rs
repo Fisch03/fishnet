@@ -70,8 +70,6 @@ pub fn component(
     let component = component::parse(item);
 
     let out = quote!(
-            extern crate fishnet;
-
             #component
     );
 

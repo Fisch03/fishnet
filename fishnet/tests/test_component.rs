@@ -41,10 +41,10 @@ async fn test_component() {
     }
 
     let result = testing_component().build("/").await;
-    let render = result.built_component.render().await;
 
     assert_eq!(result.built_component.name(), "TestingComponent");
 
+    let render = result.built_component.render().await;
     assert_eq!(
         render.0,
         "<div class=\"testing-component\"><div>Hello, world! 0</div></div>"
@@ -105,17 +105,67 @@ async fn test_component_args() {
 async fn test_component_state_ident() {
     #[component]
     async fn testing_component() {
-        let count = state!(Arc<Mutex<TestComponentState>>>);
+        let count = state!(Arc<Mutex<TestComponentState>>);
 
         let mut count = count.lock().await;
-        *count += 1;
+        count.some_val += 1;
 
         html! {
-            (count)
+            (count.some_val)
         }
     }
 
     let result = testing_component().build("/").await;
+    let render = result.built_component.render().await;
+
+    assert_eq!(render.0, "<div class=\"testing-component\">1</div>");
+}
+
+#[tokio::test]
+async fn test_component_staticity() {
+    #[component]
+    async fn testing_component() {
+        let count = state!(Arc<Mutex<TestComponentState>>);
+
+        let mut count = count.lock().await;
+        count.some_val += 1;
+
+        html! {
+            (count.some_val)
+        }
+    }
+
+    let result = testing_component().build("/").await;
+
+    let render = result.built_component.render().await;
+    assert_eq!(render.0, "<div class=\"testing-component\">1</div>");
+
+    let render = result.built_component.render().await;
+    assert_eq!(render.0, "<div class=\"testing-component\">1</div>");
+}
+
+#[tokio::test]
+async fn test_component_dynamic() {
+    #[dyn_component]
+    async fn testing_component() {
+        let count = state!(Arc<Mutex<TestComponentState>>);
+
+        let mut count = count.lock().await;
+        count.some_val += 1;
+
+        html! {
+            (count.some_val)
+        }
+    }
+
+    let result = testing_component().build("/").await;
+    dbg!(&result.built_component);
+
+    let render = result.built_component.render().await;
+    assert_eq!(render.0, "<div class=\"testing-component\">1</div>");
+
+    let render = result.built_component.render().await;
+    assert_eq!(render.0, "<div class=\"testing-component\">2</div>");
 }
 
 #[tokio::test]
@@ -125,7 +175,7 @@ async fn test_component_route_post() {
         let state = state!(Arc<TestComponentState>);
 
         #[route("/", POST)]
-        async fn root(state: Extension<_>) -> Markup {
+        async fn root(state: Extension<ComponentState<Arc<TestComponentState>>>) -> Markup {
             html! {
                 (state.some_val)
             }
@@ -133,4 +183,6 @@ async fn test_component_route_post() {
     }
 
     let result = testing_component().build("/").await;
+
+    assert!(result.router.is_some());
 }
