@@ -29,15 +29,15 @@
 </span><span class="kw">pub use </span><span class="kw">crate</span>::c;
 
 <span class="comment">// components itself
-</span><span class="kw">pub use super</span>::{BuildableComponent, ComponentState};
-
-<span class="kw">pub use </span><span class="kw">super</span>::fake_macros::<span class="kw-2">*</span>;
+</span><span class="kw">pub use </span><span class="kw">super</span>::fake_macros::state;
+<span class="kw">pub use </span><span class="kw">super</span>::fake_macros::state_init;
+<span class="kw">pub use super</span>::{BuildableComponent, ComponentState};
 <span class="kw">pub use crate</span>::{component, dyn_component};
 
 <span class="comment">// html, js, css
 </span><span class="kw">pub use </span><span class="kw">crate</span>::js::ScriptType;
-<span class="kw">pub use crate</span>::{css, script, style};
-<span class="kw">pub use </span>maud::{html, Markup, Render};
+<span class="kw">pub use crate</span>::{css, html, script, style, Markup};
+<span class="kw">pub use </span>maud::Render;
 
 <span class="comment">// boxing runner futures
 </span><span class="kw">pub use </span>futures::future::{BoxFuture, FutureExt};

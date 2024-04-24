@@ -124,6 +124,7 @@
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! data structures and functions for dealing with css
 </span><span class="kw">use </span>std::collections::{hash_map::Entry, HashMap};
 <span class="kw">use </span>tracing::debug;
@@ -193,6 +194,7 @@
 ///
 /// a stylesheet is basically just a collection of [`RenderedStyle`]s. however it caches all its
 /// renders, so you can only add to it and never remove things.
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>Stylesheet {
     style: String,
     rendered_media_queries: String,

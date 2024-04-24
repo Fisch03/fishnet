@@ -246,6 +246,7 @@
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! reusable components for building web pages (aka the main thing)
 
 </span><span class="kw">pub mod </span>prelude;
@@ -256,7 +257,8 @@
 <span class="kw">mod </span>render;
 <span class="kw">use </span>render::ContentRenderer;
 
-<span class="kw">pub mod </span>fake_macros;
+<span class="attr">#[doc(hidden)]
+</span><span class="kw">pub mod </span>fake_macros;
 
 <span class="kw">use </span><span class="kw">crate</span>::css::StyleFragment;
 <span class="kw">use </span><span class="kw">crate</span>::js::ScriptType;

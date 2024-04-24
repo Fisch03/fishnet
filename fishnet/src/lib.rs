@@ -225,8 +225,8 @@
 //! `> div` is perfectly valid. it selects all the `div`s that are direct children of the
 //! component. this also means that a selector like `*` will only affect the components children.
 //!
-//! if you want to style a specific child component, its class name will always be derived from the
-//! type you put into the [`component!`](macro@component) macro (e.g. "SomeChild" becomes
+//! if you want to style a specific child component, its css class name will always be derived from the
+//! components function name when using the [`component`](macro@component) macro (e.g. "some_child" becomes
 //! "some-child"). this also means that conflicts can occur if you use the same name multiple
 //! times, choose your names wisely...
 //!
@@ -245,8 +245,6 @@ pub mod component;
 mod routes;
 
 pub mod page;
-#[doc(hidden)]
-pub use page::render_context::{global_store, render_component, GlobalStoreEntry};
 pub use page::Page;
 
 mod website;

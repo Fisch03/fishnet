@@ -363,6 +363,7 @@
 <a href="#363" id="363">363</a>
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! fishnet is a opinionated, performant web framework for small projects and personal websites where [htmx](https://htmx.org/) is a first class citizen.
 //!
 //! # overview
@@ -529,11 +530,14 @@
 //!
 //! #[component]
 //! fn awesome_htmx_btn() {
+//!
 //!     #[route("/", POST)]
-//!     async fn click_endpoint(state: Extension&lt;_&gt;) -&gt; Markup {
+//!     async fn click_endpoint(state: Extension&lt;ComponentState&lt;()&gt;&gt;) -&gt; Markup {
 //!         html! { "hiiii!!" }
 //!     }
 //!
+//!     // just leave the state empty
+//!     let state = state!(());
 //!     html! {
 //!         button hx-post=(state.endpoint()) hx-swap="outerHTML" {
 //!             "click me"
@@ -587,8 +591,8 @@
 //! `&gt; div` is perfectly valid. it selects all the `div`s that are direct children of the
 //! component. this also means that a selector like `*` will only affect the components children.
 //!
-//! if you want to style a specific child component, its class name will always be derived from the
-//! type you put into the [`component!`](macro@component) macro (e.g. "SomeChild" becomes
+//! if you want to style a specific child component, its css class name will always be derived from the
+//! components function name when using the [`component`](macro@component) macro (e.g. "some_child" becomes
 //! "some-child"). this also means that conflicts can occur if you use the same name multiple
 //! times, choose your names wisely...
 //!
@@ -606,9 +610,7 @@
 </span><span class="kw">pub mod </span>component;
 <span class="kw">mod </span>routes;
 
-<span class="kw">mod </span>page;
-<span class="attr">#[doc(hidden)]
-</span><span class="kw">pub use </span>page::render_context::{global_store, render_component, GlobalStoreEntry};
+<span class="kw">pub mod </span>page;
 <span class="kw">pub use </span>page::Page;
 
 <span class="kw">mod </span>website;

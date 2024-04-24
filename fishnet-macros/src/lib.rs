@@ -87,8 +87,6 @@ pub fn dyn_component(
     let component = component::parse_dyn(item);
 
     let out = quote!(
-            extern crate fishnet;
-
             #component
     );
 

@@ -8,6 +8,7 @@ pub use build::{BuildableComponent, BuiltComponent, ComponentBuildResult};
 mod render;
 use render::ContentRenderer;
 
+#[doc(hidden)]
 pub mod fake_macros;
 
 use crate::css::StyleFragment;

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"attr":["component","dyn_component"],"macro":["c","css","html","script","state","state_init","style"],"mod":["component","css","js"],"struct":["Page","Website"],"type":["Markup"]};
+window.SIDEBAR_ITEMS = {"attr":["component","dyn_component"],"macro":["c","css","html","script","state","state_init","style"],"mod":["component","css","js","page"],"struct":["Website"],"type":["Markup"]};

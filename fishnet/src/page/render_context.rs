@@ -1,3 +1,18 @@
+//! managing resources during a render
+//!
+//! the render context is used under the hood whenever you use macros that add things to the
+//! page (e.g. [`c!`](crate::c!), [`style!`](crate::style!), [`script!`](crate::script!), ...).
+//!
+//! before a page renders its contents, it attaches itself to the render context via [`enter_page`]. during the
+//! render when a resource is about to be added, it is first checked whether it already exists on
+//! the render context. if yes, it is not added again and just reused. otherwise it is newly
+//! constructed. after the render is finished, the page can use [`exit_page`] to get a list of all
+//! the newly constructed things during the render and then process them further (e.g. add routes
+//! from new components, minify added scripts, ...)
+//!
+//! you usually don't need to call anything from in here manually unless you want to have finer
+//! control over resources (like dynamically adding resources to the page)
+
 use axum::routing::Router;
 use futures::future::BoxFuture;
 use maud::{html, Markup};
@@ -10,20 +25,22 @@ use tracing::{error, instrument, trace, warn};
 use crate::component::{BuildableComponent, BuiltComponent};
 use crate::page::BuiltPage;
 use crate::routes::ComponentRoute;
+use crate::{css, js};
 
 fn render_context() -> &'static Mutex<Option<RenderContext>> {
     static RENDER_CONTEXT: OnceLock<Mutex<Option<RenderContext>>> = OnceLock::new();
     RENDER_CONTEXT.get_or_init(|| Mutex::new(None))
 }
 
-#[doc(hidden)]
+/// acquire access to the [`GlobalStore`].
 pub fn global_store() -> &'static GlobalStore {
     static GLOBAL_STORE: OnceLock<GlobalStore> = OnceLock::new();
     GLOBAL_STORE.get_or_init(|| GlobalStore::new())
 }
 
 #[derive(Debug)]
-pub(crate) struct ComponentStore(HashMap<String, BuiltComponent>);
+#[doc(hidden)]
+pub struct ComponentStore(pub HashMap<String, BuiltComponent>);
 
 impl ComponentStore {
     pub(crate) fn new() -> Self {
@@ -31,20 +48,28 @@ impl ComponentStore {
     }
 }
 
+/// a single global (page independent) resource
 #[derive(Debug)]
-#[doc(hidden)]
 pub struct GlobalStoreEntry {
-    pub scripts: Vec<crate::js::ScriptType>,
-    pub style: Option<crate::css::RenderedStyle>,
+    pub scripts: Vec<js::ScriptType>,
+    pub style: Option<css::RenderedStyle>,
 }
 
+/// collection of resources that are page independent
 #[derive(Debug)]
 pub struct GlobalStore(Mutex<HashMap<String, Arc<GlobalStoreEntry>>>);
 impl GlobalStore {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self(Mutex::new(HashMap::new()))
     }
 
+    /// add a [`GlobalStoreEntry`] to the store
+    ///
+    /// does nothing if there already is a entry under the given id.
+    /// otherwise the `globals` closure is executed to create a new entry
+    ///
+    /// this will also notify the currently active render context about the newly added resource
+    /// (which usually means that it gets added to the rendered page)
     pub async fn add<F>(&self, id: &str, globals: F)
     where
         F: FnOnce() -> GlobalStoreEntry,
@@ -62,12 +87,13 @@ impl GlobalStore {
         }
     }
 
+    /// get a [`GlobalStoreEntry`] from its id.
     pub async fn get<'a>(&'a self, id: &str) -> Option<Arc<GlobalStoreEntry>> {
         self.0.lock().await.get(id).cloned()
     }
 }
 
-struct RenderContext {
+pub(crate) struct RenderContext {
     base_route: String,
 
     components: Arc<Mutex<ComponentStore>>,
@@ -113,7 +139,7 @@ impl RenderContext {
 /// Contains all the scripts, runners and routers that were collected during the rendering.
 /// * `scripts` - A list of scripts that should be included in the page.
 /// * `runners` - A list of runners that should be executed.
-/// * `routers` - A list of routers that should be accessible from the page. This is usually achieved using a [APIRouter](`crate::routes::APIRouter`).
+/// * `routers` - A list of routers that should be accessible from the page at the given routes
 pub struct RenderResult {
     pub runners: Vec<BoxFuture<'static, ()>>,
     pub routers: Vec<(ComponentRoute, Router)>,
@@ -125,9 +151,7 @@ pub struct RenderResult {
 /// This should be called before rendering any components.
 /// After the rendering is complete, `exit_page` should be called to acquire the results.
 /// Calling `enter_page` while another page is being rendered results in the loss of the previous page's render results!
-///
-/// You usually don't need to call this function yourself.
-pub(crate) async fn enter_page(page: &mut BuiltPage) {
+pub async fn enter_page(page: &mut BuiltPage) {
     let mut context = render_context().lock().await;
 
     if context.is_some() {
@@ -140,10 +164,9 @@ pub(crate) async fn enter_page(page: &mut BuiltPage) {
 /// Exit a page render context.
 ///
 /// This should be called after rendering all components. It will return the `RenderResult` containing all the scripts and runners that were collected during the rendering.
-///
 /// # Panics
 /// Panics if no page is currently being rendered. (i.e. `enter_page` was not called before)
-pub(crate) async fn exit_page() -> RenderResult {
+pub async fn exit_page() -> RenderResult {
     let mut context = render_context().lock().await;
 
     context
@@ -250,10 +273,11 @@ where
 /// Furthermore, it will be recorded, whether any dynamic components were rendered during the temporary render.
 /// This can be used to "test-render" a static component to see if it contains any dynamic children.
 ///
-/// Temporary render contexts can be exited using `exit_temporary_render`, and can be nested.
+/// Temporary render contexts can be exited using [`exit_temporary_render`], and can be multiple
+/// levels deep. it is up to you to ensure that you always exit every render you enter.
 ///
 /// You usually don't need to call this function yourself.
-pub(crate) async fn enter_temporary_render() {
+pub async fn enter_temporary_render() {
     let mut context = render_context().lock().await;
     if let Some(context) = context.as_mut() {
         trace!("entering temporary render");
@@ -266,11 +290,11 @@ pub(crate) async fn enter_temporary_render() {
 
 /// Exit a temporary render context.
 ///
-/// Returns true if the temporary render was static (i.e. no dynamic components were rendered).
+/// Returns true if the temporary render started via [`enter_temporary_render`] was static (i.e. no dynamic components were rendered).
 /// If not within a (temporary) render context, this function will always return true.
 ///
 /// You usually don't need to call this function yourself.
-pub(crate) async fn exit_temporary_render() -> bool {
+pub async fn exit_temporary_render() -> bool {
     let mut context = render_context().lock().await;
     if let Some(context) = context.as_mut() {
         if context.temporary_render_depth == 0 {
@@ -289,12 +313,32 @@ pub(crate) async fn exit_temporary_render() -> bool {
     }
 }
 
-/// add [`css`](crate::css!) to the page from outside a component.
+/// add [`css`](crate::css!) to the page
+///
+/// you have to call this from within a page render or it will not work.
+///
+/// there are two ways to use this macro:
+/// ## from within a component
+/// ```rust
+/// use fishnet::component::prelude::*;
+///
+/// #[component]
+/// async fn my_component() {
+///     style!(css!{
+///         color: red;
+///     });
+///
+///     html! {
+///         "hello world!"
+///     }
+/// }
+///```
+///
+/// ## from outside a component
+/// additionally to providing the style, you also have to name the top level class yourself as the
+/// first argument.
 ///
 /// this is helpful for adding styling to functions that just return [`Markup`](crate::Markup).
-/// you have to call this from within a page render or the css will not be added to the page.
-///
-/// ### usage
 /// ```rust
 /// use fishnet::{style, html, Markup, css};
 ///
@@ -309,22 +353,30 @@ pub(crate) async fn exit_temporary_render() -> bool {
 ///         }
 ///     }
 /// }
+/// ```
 #[macro_export]
 macro_rules! style {
+    ($css: expr) => {{
+        compile_error!(
+            "you have to provide a class name to the style macro or use it from within a component"
+        );
+    }};
     ($tl_class: literal, $css:expr) => {{
-        $crate::global_store()
-            .add($crate::const_nanoid!(10), || $crate::GlobalStoreEntry {
-                scripts: Vec::new(),
-                style: Some($css.render($tl_class)),
+        $crate::page::render_context::global_store()
+            .add($crate::const_nanoid!(10), || {
+                $crate::page::render_context::GlobalStoreEntry {
+                    scripts: Vec::new(),
+                    style: Some($css.render($tl_class)),
+                }
             })
             .await;
     }};
 }
 
-/// add js to the page from outside a component.
+/// add js to the page
 ///
-/// this is helpful for adding styling to functions that just return [`Markup`](crate::Markup).
-/// you have to call this from within a page render or the js will not be added to the page.
+/// differently to the [`css!`] macro, this will work identically whether you are within a
+/// component or not. you still have to be within a page render though or it will do nothing.
 ///
 /// ### usage
 /// ```rust
@@ -343,10 +395,12 @@ macro_rules! style {
 #[macro_export]
 macro_rules! script {
     ($js:literal) => {{
-        $crate::global_store()
-            .add($crate::const_nanoid!(10), || $crate::GlobalStoreEntry {
-                scripts: vec![$crate::js::ScriptType::Inline($js)],
-                style: None,
+        $crate::page::render_context::global_store()
+            .add($crate::const_nanoid!(10), || {
+                $crate::page::render_context::GlobalStoreEntry {
+                    scripts: vec![$crate::js::ScriptType::Inline($js)],
+                    style: None,
+                }
             })
             .await;
     }};
@@ -383,6 +437,6 @@ macro_rules! c {
     ($component:expr) => {{
         let component = || $component;
 
-        $crate::render_component($crate::const_nanoid!(10), component).await
+        $crate::page::render_context::render_component($crate::const_nanoid!(10), component).await
     }};
 }

@@ -386,7 +386,76 @@
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>axum::routing::Router;
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! managing resources during a render
+//!
+//! the render context is used under the hood whenever you use macros that add things to the
+//! page (e.g. [`c!`](crate::c!), [`style!`](crate::style!), [`script!`](crate::script!), ...).
+//!
+//! before a page renders its contents, it attaches itself to the render context via [`enter_page`]. during the
+//! render when a resource is about to be added, it is first checked whether it already exists on
+//! the render context. if yes, it is not added again and just reused. otherwise it is newly
+//! constructed. after the render is finished, the page can use [`exit_page`] to get a list of all
+//! the newly constructed things during the render and then process them further (e.g. add routes
+//! from new components, minify added scripts, ...)
+//!
+//! you usually don't need to call anything from in here manually unless you want to have finer
+//! control over resources (like dynamically adding resources to the page)
+
+</span><span class="kw">use </span>axum::routing::Router;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>maud::{html, Markup};
 <span class="kw">use </span>std::collections::{hash_map::Entry, HashMap, HashSet};
@@ -398,20 +467,22 @@
 <span class="kw">use </span><span class="kw">crate</span>::component::{BuildableComponent, BuiltComponent};
 <span class="kw">use </span><span class="kw">crate</span>::page::BuiltPage;
 <span class="kw">use </span><span class="kw">crate</span>::routes::ComponentRoute;
+<span class="kw">use crate</span>::{css, js};
 
 <span class="kw">fn </span>render_context() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Mutex&lt;<span class="prelude-ty">Option</span>&lt;RenderContext&gt;&gt; {
     <span class="kw">static </span>RENDER_CONTEXT: OnceLock&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;RenderContext&gt;&gt;&gt; = OnceLock::new();
     RENDER_CONTEXT.get_or_init(|| Mutex::new(<span class="prelude-val">None</span>))
 }
 
-<span class="attr">#[doc(hidden)]
+<span class="doccomment">/// acquire access to the [`GlobalStore`].
 </span><span class="kw">pub fn </span>global_store() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>GlobalStore {
     <span class="kw">static </span>GLOBAL_STORE: OnceLock&lt;GlobalStore&gt; = OnceLock::new();
     GLOBAL_STORE.get_or_init(|| GlobalStore::new())
 }
 
 <span class="attr">#[derive(Debug)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ComponentStore(HashMap&lt;String, BuiltComponent&gt;);
+#[doc(hidden)]
+</span><span class="kw">pub struct </span>ComponentStore(<span class="kw">pub </span>HashMap&lt;String, BuiltComponent&gt;);
 
 <span class="kw">impl </span>ComponentStore {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
@@ -419,21 +490,29 @@
     }
 }
 
-<span class="attr">#[derive(Debug)]
-#[doc(hidden)]
+<span class="doccomment">/// a single global (page independent) resource
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>GlobalStoreEntry {
-    <span class="kw">pub </span>scripts: Vec&lt;<span class="kw">crate</span>::js::ScriptType&gt;,
-    <span class="kw">pub </span>style: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::css::RenderedStyle&gt;,
+    <span class="kw">pub </span>scripts: Vec&lt;js::ScriptType&gt;,
+    <span class="kw">pub </span>style: <span class="prelude-ty">Option</span>&lt;css::RenderedStyle&gt;,
 }
 
-<span class="attr">#[derive(Debug)]
+<span class="doccomment">/// collection of resources that are page independent
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>GlobalStore(Mutex&lt;HashMap&lt;String, Arc&lt;GlobalStoreEntry&gt;&gt;&gt;);
 <span class="kw">impl </span>GlobalStore {
-    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(Mutex::new(HashMap::new()))
     }
 
-    <span class="kw">pub async fn </span>add&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str, globals: F)
+    <span class="doccomment">/// add a [`GlobalStoreEntry`] to the store
+    ///
+    /// does nothing if there already is a entry under the given id.
+    /// otherwise the `globals` closure is executed to create a new entry
+    ///
+    /// this will also notify the currently active render context about the newly added resource
+    /// (which usually means that it gets added to the rendered page)
+    </span><span class="kw">pub async fn </span>add&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str, globals: F)
     <span class="kw">where
         </span>F: FnOnce() -&gt; GlobalStoreEntry,
     {
@@ -450,12 +529,13 @@
         }
     }
 
-    <span class="kw">pub async fn </span>get&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;GlobalStoreEntry&gt;&gt; {
+    <span class="doccomment">/// get a [`GlobalStoreEntry`] from its id.
+    </span><span class="kw">pub async fn </span>get&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;GlobalStoreEntry&gt;&gt; {
         <span class="self">self</span>.<span class="number">0</span>.lock().<span class="kw">await</span>.get(id).cloned()
     }
 }
 
-<span class="kw">struct </span>RenderContext {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RenderContext {
     base_route: String,
 
     components: Arc&lt;Mutex&lt;ComponentStore&gt;&gt;,
@@ -501,7 +581,7 @@
 /// Contains all the scripts, runners and routers that were collected during the rendering.
 /// * `scripts` - A list of scripts that should be included in the page.
 /// * `runners` - A list of runners that should be executed.
-/// * `routers` - A list of routers that should be accessible from the page. This is usually achieved using a [APIRouter](`crate::routes::APIRouter`).
+/// * `routers` - A list of routers that should be accessible from the page at the given routes
 </span><span class="kw">pub struct </span>RenderResult {
     <span class="kw">pub </span>runners: Vec&lt;BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;&gt;,
     <span class="kw">pub </span>routers: Vec&lt;(ComponentRoute, Router)&gt;,
@@ -513,9 +593,7 @@
 /// This should be called before rendering any components.
 /// After the rendering is complete, `exit_page` should be called to acquire the results.
 /// Calling `enter_page` while another page is being rendered results in the loss of the previous page's render results!
-///
-/// You usually don't need to call this function yourself.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>enter_page(page: <span class="kw-2">&amp;mut </span>BuiltPage) {
+</span><span class="kw">pub async fn </span>enter_page(page: <span class="kw-2">&amp;mut </span>BuiltPage) {
     <span class="kw">let </span><span class="kw-2">mut </span>context = render_context().lock().<span class="kw">await</span>;
 
     <span class="kw">if </span>context.is_some() {
@@ -528,10 +606,9 @@
 <span class="doccomment">/// Exit a page render context.
 ///
 /// This should be called after rendering all components. It will return the `RenderResult` containing all the scripts and runners that were collected during the rendering.
-///
 /// # Panics
 /// Panics if no page is currently being rendered. (i.e. `enter_page` was not called before)
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>exit_page() -&gt; RenderResult {
+</span><span class="kw">pub async fn </span>exit_page() -&gt; RenderResult {
     <span class="kw">let </span><span class="kw-2">mut </span>context = render_context().lock().<span class="kw">await</span>;
 
     context
@@ -638,10 +715,11 @@
 /// Furthermore, it will be recorded, whether any dynamic components were rendered during the temporary render.
 /// This can be used to "test-render" a static component to see if it contains any dynamic children.
 ///
-/// Temporary render contexts can be exited using `exit_temporary_render`, and can be nested.
+/// Temporary render contexts can be exited using [`exit_temporary_render`], and can be multiple
+/// levels deep. it is up to you to ensure that you always exit every render you enter.
 ///
 /// You usually don't need to call this function yourself.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>enter_temporary_render() {
+</span><span class="kw">pub async fn </span>enter_temporary_render() {
     <span class="kw">let </span><span class="kw-2">mut </span>context = render_context().lock().<span class="kw">await</span>;
     <span class="kw">if let </span><span class="prelude-val">Some</span>(context) = context.as_mut() {
         <span class="macro">trace!</span>(<span class="string">"entering temporary render"</span>);
@@ -654,11 +732,11 @@
 
 <span class="doccomment">/// Exit a temporary render context.
 ///
-/// Returns true if the temporary render was static (i.e. no dynamic components were rendered).
+/// Returns true if the temporary render started via [`enter_temporary_render`] was static (i.e. no dynamic components were rendered).
 /// If not within a (temporary) render context, this function will always return true.
 ///
 /// You usually don't need to call this function yourself.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>exit_temporary_render() -&gt; bool {
+</span><span class="kw">pub async fn </span>exit_temporary_render() -&gt; bool {
     <span class="kw">let </span><span class="kw-2">mut </span>context = render_context().lock().<span class="kw">await</span>;
     <span class="kw">if let </span><span class="prelude-val">Some</span>(context) = context.as_mut() {
         <span class="kw">if </span>context.temporary_render_depth == <span class="number">0 </span>{
@@ -677,12 +755,32 @@
     </span>}
 }
 
-<span class="doccomment">/// add [`css`](crate::css!) to the page from outside a component.
+<span class="doccomment">/// add [`css`](crate::css!) to the page
+///
+/// you have to call this from within a page render or it will not work.
+///
+/// there are two ways to use this macro:
+/// ## from within a component
+/// ```rust
+/// use fishnet::component::prelude::*;
+///
+/// #[component]
+/// async fn my_component() {
+///     style!(css!{
+///         color: red;
+///     });
+///
+///     html! {
+///         "hello world!"
+///     }
+/// }
+///```
+///
+/// ## from outside a component
+/// additionally to providing the style, you also have to name the top level class yourself as the
+/// first argument.
 ///
 /// this is helpful for adding styling to functions that just return [`Markup`](crate::Markup).
-/// you have to call this from within a page render or the css will not be added to the page.
-///
-/// ### usage
 /// ```rust
 /// use fishnet::{style, html, Markup, css};
 ///
@@ -697,22 +795,30 @@
 ///         }
 ///     }
 /// }
+/// ```
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules!</span> style {
+    (<span class="macro-nonterminal">$css</span>: expr) =&gt; {{
+        <span class="macro">compile_error!</span>(
+            <span class="string">"you have to provide a class name to the style macro or use it from within a component"
+        </span>);
+    }};
     (<span class="macro-nonterminal">$tl_class</span>: literal, <span class="macro-nonterminal">$css</span>:expr) =&gt; {{
-        <span class="macro-nonterminal">$crate::global_store</span>()
-            .add(<span class="macro-nonterminal">$</span><span class="macro">crate::const_nanoid!</span>(<span class="number">10</span>), || <span class="macro-nonterminal">$crate::GlobalStoreEntry </span>{
-                scripts: Vec::new(),
-                style: <span class="prelude-val">Some</span>(<span class="macro-nonterminal">$css</span>.render(<span class="macro-nonterminal">$tl_class</span>)),
+        <span class="macro-nonterminal">$crate::page::render_context::global_store</span>()
+            .add(<span class="macro-nonterminal">$</span><span class="macro">crate::const_nanoid!</span>(<span class="number">10</span>), || {
+                <span class="macro-nonterminal">$crate::page::render_context::GlobalStoreEntry </span>{
+                    scripts: Vec::new(),
+                    style: <span class="prelude-val">Some</span>(<span class="macro-nonterminal">$css</span>.render(<span class="macro-nonterminal">$tl_class</span>)),
+                }
             })
             .<span class="kw">await</span>;
     }};
 }
 
-<span class="doccomment">/// add js to the page from outside a component.
+<span class="doccomment">/// add js to the page
 ///
-/// this is helpful for adding styling to functions that just return [`Markup`](crate::Markup).
-/// you have to call this from within a page render or the js will not be added to the page.
+/// differently to the [`css!`] macro, this will work identically whether you are within a
+/// component or not. you still have to be within a page render though or it will do nothing.
 ///
 /// ### usage
 /// ```rust
@@ -731,10 +837,12 @@
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules!</span> script {
     (<span class="macro-nonterminal">$js</span>:literal) =&gt; {{
-        <span class="macro-nonterminal">$crate::global_store</span>()
-            .add(<span class="macro-nonterminal">$</span><span class="macro">crate::const_nanoid!</span>(<span class="number">10</span>), || <span class="macro-nonterminal">$crate::GlobalStoreEntry </span>{
-                scripts: <span class="macro">vec!</span>[<span class="macro-nonterminal">$crate::js::ScriptType::Inline</span>(<span class="macro-nonterminal">$js</span>)],
-                style: <span class="prelude-val">None</span>,
+        <span class="macro-nonterminal">$crate::page::render_context::global_store</span>()
+            .add(<span class="macro-nonterminal">$</span><span class="macro">crate::const_nanoid!</span>(<span class="number">10</span>), || {
+                <span class="macro-nonterminal">$crate::page::render_context::GlobalStoreEntry </span>{
+                    scripts: <span class="macro">vec!</span>[<span class="macro-nonterminal">$crate::js::ScriptType::Inline</span>(<span class="macro-nonterminal">$js</span>)],
+                    style: <span class="prelude-val">None</span>,
+                }
             })
             .<span class="kw">await</span>;
     }};
@@ -771,7 +879,7 @@
     (<span class="macro-nonterminal">$component</span>:expr) =&gt; {{
         <span class="kw">let </span>component = || <span class="macro-nonterminal">$component</span>;
 
-        <span class="macro-nonterminal">$crate::render_component</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::const_nanoid!</span>(<span class="number">10</span>), <span class="macro-nonterminal">component</span>).<span class="kw">await
+        <span class="macro-nonterminal">$crate::page::render_context::render_component</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::const_nanoid!</span>(<span class="number">10</span>), <span class="macro-nonterminal">component</span>).<span class="kw">await
     </span>}};
 }
 </code></pre></div></section></main></body></html>

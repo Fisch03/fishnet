@@ -1,6 +1,6 @@
 extern crate fishnet_macros;
 use fishnet::component::prelude::*;
-use fishnet::global_store;
+use fishnet::page::render_context::global_store;
 use fishnet_macros::{component, css};
 use std::sync::Arc;
 

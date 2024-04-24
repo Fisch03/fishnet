@@ -291,10 +291,10 @@
     head: Markup,
     body_renderer: Box&lt;<span class="kw">dyn </span>Fn() -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, Markup&gt; + Send + Sync&gt;,
 
-    <span class="kw">pub </span>used_globals: HashSet&lt;String&gt;,
-    <span class="kw">pub </span>components: Arc&lt;Mutex&lt;ComponentStore&gt;&gt;,
+    used_globals: HashSet&lt;String&gt;,
+    components: Arc&lt;Mutex&lt;ComponentStore&gt;&gt;,
 
-    <span class="kw">pub </span>api_path: String,
+    api_path: String,
     api_router: APIRouter,
 
     script_path: String,
@@ -309,7 +309,7 @@
 
 <span class="kw">impl </span>BuiltPage {
     <span class="attr">#[instrument(name = <span class="string">"Page::build"</span>, skip_all, fields(name = %page.name))]
-    </span><span class="kw">async fn </span>new(page: Page, path: <span class="kw-2">&amp;</span>str) -&gt; (Arc&lt;Mutex&lt;BuiltPage&gt;&gt;, Router) {
+    </span><span class="kw">pub async fn </span>new(page: Page, path: <span class="kw-2">&amp;</span>str) -&gt; (Arc&lt;Mutex&lt;BuiltPage&gt;&gt;, Router) {
         <span class="kw">let </span>base_path = path.trim_end_matches(<span class="string">'/'</span>);
         <span class="kw">let </span>script_path = <span class="macro">format!</span>(<span class="string">"{}/script.js"</span>, base_path);
         <span class="kw">let </span>style_path = <span class="macro">format!</span>(<span class="string">"{}/style.css"</span>, base_path);
@@ -367,7 +367,7 @@
         )
     }
 
-    <span class="kw">async fn </span>render(page: Extension&lt;Arc&lt;Mutex&lt;<span class="self">Self</span>&gt;&gt;&gt;) -&gt; Markup {
+    <span class="kw">pub async fn </span>render(page: Extension&lt;Arc&lt;Mutex&lt;<span class="self">Self</span>&gt;&gt;&gt;) -&gt; Markup {
         <span class="kw">let </span>start = std::time::Instant::now();
 
         <span class="kw">let </span><span class="kw-2">mut </span>page_guard = page.lock().<span class="kw">await</span>;

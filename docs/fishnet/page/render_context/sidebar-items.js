@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["enter_page","enter_temporary_render","exit_page","exit_temporary_render","global_store","render_component"],"struct":["GlobalStore","GlobalStoreEntry","RenderResult"]};

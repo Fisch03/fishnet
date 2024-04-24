@@ -2,7 +2,7 @@
 <p>it is highly recommended to use this instead of constructing a <a href="../struct.Component.html" title="struct fishnet::component::Component"><code>Component</code></a> manually.</p>
 <p>you use this to decorate any async function that returns a <a href="../../type.Markup.html" title="type fishnet::Markup"><code>Markup</code></a> and it will be turned into a <a href="../struct.Component.html" title="struct fishnet::component::Component"><code>Component</code></a> for you.
 you can use the <a href="macro.style.html" title="macro fishnet::component::prelude::style"><code>style!</code></a> and <a href="macro.script.html" title="macro fishnet::component::prelude::script"><code>script!</code></a> macros anywhere in the function to add css and javascript to the component.
-there are two macros to add state to the component - <a href="../fake_macros/macro.state.html" title="macro fishnet::component::fake_macros::state"><code>state!</code></a> and <a href="../fake_macros/macro.state_init.html" title="macro fishnet::component::fake_macros::state_init"><code>state_init!</code></a>. state
+there are two macros to add state to the component - <a href="macro.state.html" title="macro fishnet::component::prelude::state"><code>state!</code></a> and <a href="macro.state_init.html" title="macro fishnet::component::prelude::state_init"><code>state_init!</code></a>. state
 takes in a type and uses the <a href="https://doc.rust-lang.org/nightly/core/default/trait.Default.html" title="trait core::default::Default"><code>std::default::Default</code></a> implementation to create the initial
 state. if you want some more control like initializing the state from function parameters, you
 can use the state_init! macro instead.</p>

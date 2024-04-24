@@ -3,15 +3,15 @@
 pub use crate::c;
 
 // components itself
+pub use super::fake_macros::state;
+pub use super::fake_macros::state_init;
 pub use super::{BuildableComponent, ComponentState};
-
-pub use super::fake_macros::*;
 pub use crate::{component, dyn_component};
 
 // html, js, css
 pub use crate::js::ScriptType;
-pub use crate::{css, script, style};
-pub use maud::{html, Markup, Render};
+pub use crate::{css, html, script, style, Markup};
+pub use maud::Render;
 
 // boxing runner futures
 pub use futures::future::{BoxFuture, FutureExt};

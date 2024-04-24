@@ -67,6 +67,7 @@ pub struct RenderedStyle {
 ///
 /// a stylesheet is basically just a collection of [`RenderedStyle`]s. however it caches all its
 /// renders, so you can only add to it and never remove things.
+#[derive(Debug)]
 pub struct Stylesheet {
     style: String,
     rendered_media_queries: String,
