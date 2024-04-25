@@ -51,7 +51,7 @@ where
     }
 }
 
-pub type ComponentRunner<ST> =
+type ComponentRunner<ST> =
     Box<dyn FnOnce(ComponentState<ST>) -> BoxFuture<'static, ()> + Send + Sync + 'static>;
 
 #[doc(hidden)]

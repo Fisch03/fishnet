@@ -78,7 +78,7 @@ impl Parser {
                     .parse_qualified_rule(format!("{} ", punct))
                     .map(ast::StyleFragment::QualifiedRule),
                 // part of a selector (no spacing)
-                '.' | '#' | ':' | '&' => self
+                '.' | '#' | ':' | '&' | '+' => self
                     .parse_qualified_rule(punct.to_string())
                     .map(ast::StyleFragment::QualifiedRule),
                 _ => None,

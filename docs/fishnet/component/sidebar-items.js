@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["prelude"],"struct":["BuiltComponent","Component","ComponentBuildResult","ComponentState"],"trait":["BuildableComponent"],"type":["ComponentRunner"]};
+window.SIDEBAR_ITEMS = {"mod":["prelude"],"struct":["BuiltComponent","Component","ComponentBuildResult","ComponentState"],"trait":["BuildableComponent"]};

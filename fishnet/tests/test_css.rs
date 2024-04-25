@@ -401,3 +401,19 @@ fn test_border() {
         ",
     )
 }
+
+#[test]
+fn test_selector_next_sibling() {
+    test_match(
+        css! {
+            +.next-sibling {
+                color: red;
+            }
+        },
+        r"
+        .component +.next-sibling {
+            color: red;
+        }
+        ",
+    )
+}

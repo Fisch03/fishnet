@@ -20,7 +20,7 @@ use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::sync::{Arc, OnceLock};
 use tokio::sync::{Mutex, OwnedMutexGuard};
 
-use tracing::{error, instrument, trace, warn};
+use tracing::{error, trace, warn};
 
 use crate::component::{BuildableComponent, BuiltComponent};
 use crate::page::BuiltPage;
@@ -41,7 +41,7 @@ pub fn global_store() -> &'static GlobalStore {
 
 #[derive(Debug)]
 #[doc(hidden)]
-pub struct ComponentStore(pub HashMap<String, BuiltComponent>);
+pub struct ComponentStore(pub HashMap<String, Arc<BuiltComponent>>);
 
 impl ComponentStore {
     pub(crate) fn new() -> Self {
@@ -188,14 +188,15 @@ pub async fn exit_page() -> RenderResult {
 /// It is highly recommended to use the [`c!`](crate::c!) macro instead of calling this function directly, since it will handle the context id generation automatically.
 /// * `context_id` - A unique identifier for the render. This should be kept consistent for the same component across renders.
 /// * `lazy_component` - A closure that returns the component to render. It will only be called if the component is not already rendered for the current page.
-#[instrument(name = "c", level = "debug", skip_all)]
+// as much as i'd like to instrument this, it actually uses quite a bit of overhead so let's not.
+//#[instrument(name = "c", level = "debug", skip_all)]
 pub async fn render_component<F, C>(context_id: &str, lazy_component: F) -> Markup
 where
     F: FnOnce() -> C,
     C: BuildableComponent,
 {
     let is_temporary;
-    let existing_content;
+    let existing_component;
     let base_route;
     {
         let mut context_guard = render_context().lock();
@@ -217,23 +218,19 @@ where
         let context = context_guard.as_mut().unwrap();
 
         is_temporary = context.temporary_render_depth > 0;
-        existing_content = context
-            .components
-            .0
-            .get(&context_id.to_string())
-            .map(|c| c.content_cloned());
+        existing_component = context.components.0.get(&context_id.to_string()).cloned();
         base_route = context.base_route.clone();
     }
 
     let render;
-    if existing_content.is_some() {
-        let existing_content = existing_content.unwrap();
+    if existing_component.is_some() {
+        let existing_component = existing_component.unwrap();
 
         // IMPORTANT: Since may lead to recursive calls, all the locks need to be dropped before calling
         if is_temporary {
-            render = existing_content.render_if_static().unwrap_or_default();
+            render = existing_component.render_if_static().unwrap_or_default();
         } else {
-            render = existing_content.render().await;
+            render = existing_component.render().await;
         }
     } else {
         // IMPORTANT: Since may lead to recursive calls, all the locks need to be dropped before calling
@@ -271,10 +268,10 @@ where
             }
 
             if !context.temporary_render_depth > 0 {
-                context
-                    .components
-                    .0
-                    .insert(context_id.to_string(), new_component.built_component);
+                context.components.0.insert(
+                    context_id.to_string(),
+                    Arc::new(new_component.built_component),
+                );
             }
         }
     }
@@ -388,10 +385,12 @@ macro_rules! style {
     }};
 }
 
-/// add js to the page
+/// add inline js to the page
 ///
 /// differently to the [`css!`] macro, this will work identically whether you are within a
 /// component or not. you still have to be within a page render though or it will do nothing.
+///
+/// if the `minify-js` crate feature is enabled, the scripts will be minified before serving them.
 ///
 /// ### usage
 /// ```rust
@@ -421,6 +420,39 @@ macro_rules! script {
     }};
 }
 
+/// add js from a file to the page
+///
+/// differently to the [`css!`] macro, this will work identically whether you are within a
+/// component or not. you still have to be within a page render though or it will do nothing.
+///
+/// if the `minify-js` crate feature is enabled, the scripts will be minified before serving them.
+///
+/// ### usage
+/// ```rust
+/// use fishnet::{script, html, Markup};
+/// async fn render_something() -> Markup {
+///     script_external!("js/my_cool_script.js");
+///     
+///     html!{
+///         div class="my_class" {
+///             "hello from html!"
+///         }
+///     }
+/// }
+
+#[macro_export]
+macro_rules! script_external {
+    ($path:literal) => {{
+        $crate::page::render_context::global_store()
+            .add($crate::const_nanoid!(10), || {
+                $crate::page::render_context::GlobalStoreEntry {
+                    scripts: vec![$crate::js::ScriptType::External($js)],
+                    style: None,
+                }
+            })
+            .await;
+    }};
+}
 /// add components to the page.
 ///
 /// This is done by wrapping the component in a `c!` macro. The component will then be

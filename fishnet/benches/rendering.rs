@@ -4,7 +4,7 @@ use fishnet::page::{BuiltPage, Page};
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 use pprof::criterion::{Output, PProfProfiler};
 
 macro_rules! make_page {
@@ -238,14 +238,14 @@ fn bench_render(cr: &mut Criterion) {
     group.finish();
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 criterion_group!(
     name = benches;
 
     config = Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
     targets = bench_render
 );
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(unix))]
 criterion_group!(benches, bench_render);
 
 criterion_main!(benches);
