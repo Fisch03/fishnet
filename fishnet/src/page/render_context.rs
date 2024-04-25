@@ -17,9 +17,8 @@ use axum::routing::Router;
 use futures::future::BoxFuture;
 use maud::{html, Markup};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
-use std::sync::Arc;
-use std::sync::OnceLock;
-use tokio::sync::Mutex;
+use std::sync::{Arc, OnceLock};
+use tokio::sync::{Mutex, OwnedMutexGuard};
 use tracing::{error, instrument, trace, warn};
 
 use crate::component::{BuildableComponent, BuiltComponent};
@@ -91,12 +90,18 @@ impl GlobalStore {
     pub async fn get<'a>(&'a self, id: &str) -> Option<Arc<GlobalStoreEntry>> {
         self.0.lock().await.get(id).cloned()
     }
+
+    #[doc(hidden)]
+    pub async fn clear(&self) {
+        self.0.lock().await.clear();
+    }
 }
 
 pub(crate) struct RenderContext {
     base_route: String,
 
-    components: Arc<Mutex<ComponentStore>>,
+    components: OwnedMutexGuard<ComponentStore>,
+
     new_globals: HashSet<String>,
 
     static_state: bool,
@@ -106,11 +111,11 @@ pub(crate) struct RenderContext {
     new_routers: Vec<(ComponentRoute, Router)>,
 }
 impl RenderContext {
-    fn new(base_route: &str, components: Arc<Mutex<ComponentStore>>) -> RenderContext {
+    async fn new(base_route: &str, components: Arc<Mutex<ComponentStore>>) -> RenderContext {
         Self {
             base_route: base_route.to_string(),
 
-            components,
+            components: components.lock_owned().await,
 
             static_state: false,
             temporary_render_depth: 0,
@@ -158,7 +163,7 @@ pub async fn enter_page(page: &mut BuiltPage) {
         warn!("tried to render a page while another page is already being rendered");
     }
 
-    context.replace(RenderContext::new(&page.api_path, page.components.clone()));
+    context.replace(RenderContext::new(&page.api_path, page.components.clone()).await);
 }
 
 /// Exit a page render context.
@@ -203,18 +208,22 @@ where
         }
     }
     let mut context = context_guard.as_mut().unwrap();
-    let mut components_guard = context.components.lock().await;
+
+    let is_temporary = context.temporary_render_depth > 0;
 
     let render;
-    let existing_component = components_guard.0.get(&context_id.to_string());
+    let existing_component = context.components.0.get(&context_id.to_string());
     if existing_component.is_some() {
-        let component = existing_component.unwrap().clone(); //TODO: avoid this clone somehow?
+        let content = existing_component.unwrap().content_cloned();
 
-        drop(components_guard);
         drop(context_guard);
 
         // IMPORTANT: Since may lead to recursive calls, all the locks need to be dropped before calling
-        render = component.render().await;
+        if is_temporary {
+            render = content.render_if_static().unwrap_or_default();
+        } else {
+            render = content.render().await;
+        }
 
         context_guard = render_context().lock().await;
         if context_guard.is_none() {
@@ -227,14 +236,20 @@ where
     } else {
         let base_route = context.base_route.clone();
 
-        drop(components_guard);
         drop(context_guard);
 
         // IMPORTANT: Since may lead to recursive calls, all the locks need to be dropped before calling
         trace!("building component");
         let new_component = lazy_component().build(&base_route).await;
         trace!("rendering component");
-        render = new_component.built_component.render().await;
+        if is_temporary {
+            render = new_component
+                .built_component
+                .render_if_static()
+                .unwrap_or_default();
+        } else {
+            render = new_component.built_component.render().await;
+        }
 
         context_guard = render_context().lock().await;
         if context_guard.is_none() {
@@ -246,7 +261,6 @@ where
         }
 
         context = context_guard.as_mut().unwrap();
-        components_guard = context.components.lock().await;
 
         context.static_state &= !new_component.built_component.is_dynamic();
 
@@ -258,7 +272,8 @@ where
         }
 
         if !context.temporary_render_depth > 0 {
-            components_guard
+            context
+                .components
                 .0
                 .insert(context_id.to_string(), new_component.built_component);
         }

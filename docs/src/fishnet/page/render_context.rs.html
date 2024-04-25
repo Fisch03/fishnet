@@ -440,6 +440,21 @@
 <a href="#440" id="440">440</a>
 <a href="#441" id="441">441</a>
 <a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! managing resources during a render
 //!
 //! the render context is used under the hood whenever you use macros that add things to the
@@ -459,9 +474,8 @@
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>maud::{html, Markup};
 <span class="kw">use </span>std::collections::{hash_map::Entry, HashMap, HashSet};
-<span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>std::sync::OnceLock;
-<span class="kw">use </span>tokio::sync::Mutex;
+<span class="kw">use </span>std::sync::{Arc, OnceLock};
+<span class="kw">use </span>tokio::sync::{Mutex, OwnedMutexGuard};
 <span class="kw">use </span>tracing::{error, instrument, trace, warn};
 
 <span class="kw">use </span><span class="kw">crate</span>::component::{BuildableComponent, BuiltComponent};
@@ -533,12 +547,18 @@
     </span><span class="kw">pub async fn </span>get&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;GlobalStoreEntry&gt;&gt; {
         <span class="self">self</span>.<span class="number">0</span>.lock().<span class="kw">await</span>.get(id).cloned()
     }
+
+    <span class="attr">#[doc(hidden)]
+    </span><span class="kw">pub async fn </span>clear(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.<span class="number">0</span>.lock().<span class="kw">await</span>.clear();
+    }
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RenderContext {
     base_route: String,
 
-    components: Arc&lt;Mutex&lt;ComponentStore&gt;&gt;,
+    components: OwnedMutexGuard&lt;ComponentStore&gt;,
+
     new_globals: HashSet&lt;String&gt;,
 
     static_state: bool,
@@ -548,11 +568,11 @@
     new_routers: Vec&lt;(ComponentRoute, Router)&gt;,
 }
 <span class="kw">impl </span>RenderContext {
-    <span class="kw">fn </span>new(base_route: <span class="kw-2">&amp;</span>str, components: Arc&lt;Mutex&lt;ComponentStore&gt;&gt;) -&gt; RenderContext {
+    <span class="kw">async fn </span>new(base_route: <span class="kw-2">&amp;</span>str, components: Arc&lt;Mutex&lt;ComponentStore&gt;&gt;) -&gt; RenderContext {
         <span class="self">Self </span>{
             base_route: base_route.to_string(),
 
-            components,
+            components: components.lock_owned().<span class="kw">await</span>,
 
             static_state: <span class="bool-val">false</span>,
             temporary_render_depth: <span class="number">0</span>,
@@ -600,7 +620,7 @@
         <span class="macro">warn!</span>(<span class="string">"tried to render a page while another page is already being rendered"</span>);
     }
 
-    context.replace(RenderContext::new(<span class="kw-2">&amp;</span>page.api_path, page.components.clone()));
+    context.replace(RenderContext::new(<span class="kw-2">&amp;</span>page.api_path, page.components.clone()).<span class="kw">await</span>);
 }
 
 <span class="doccomment">/// Exit a page render context.
@@ -645,18 +665,22 @@
         }
     }
     <span class="kw">let </span><span class="kw-2">mut </span>context = context_guard.as_mut().unwrap();
-    <span class="kw">let </span><span class="kw-2">mut </span>components_guard = context.components.lock().<span class="kw">await</span>;
+
+    <span class="kw">let </span>is_temporary = context.temporary_render_depth &gt; <span class="number">0</span>;
 
     <span class="kw">let </span>render;
-    <span class="kw">let </span>existing_component = components_guard.<span class="number">0</span>.get(<span class="kw-2">&amp;</span>context_id.to_string());
+    <span class="kw">let </span>existing_component = context.components.<span class="number">0</span>.get(<span class="kw-2">&amp;</span>context_id.to_string());
     <span class="kw">if </span>existing_component.is_some() {
-        <span class="kw">let </span>component = existing_component.unwrap().clone(); <span class="comment">//TODO: avoid this clone somehow?
+        <span class="kw">let </span>content = existing_component.unwrap().content_cloned();
 
-        </span>drop(components_guard);
         drop(context_guard);
 
         <span class="comment">// IMPORTANT: Since may lead to recursive calls, all the locks need to be dropped before calling
-        </span>render = component.render().<span class="kw">await</span>;
+        </span><span class="kw">if </span>is_temporary {
+            render = content.render_if_static().unwrap_or_default();
+        } <span class="kw">else </span>{
+            render = content.render().<span class="kw">await</span>;
+        }
 
         context_guard = render_context().lock().<span class="kw">await</span>;
         <span class="kw">if </span>context_guard.is_none() {
@@ -669,14 +693,20 @@
     } <span class="kw">else </span>{
         <span class="kw">let </span>base_route = context.base_route.clone();
 
-        drop(components_guard);
         drop(context_guard);
 
         <span class="comment">// IMPORTANT: Since may lead to recursive calls, all the locks need to be dropped before calling
         </span><span class="macro">trace!</span>(<span class="string">"building component"</span>);
         <span class="kw">let </span>new_component = lazy_component().build(<span class="kw-2">&amp;</span>base_route).<span class="kw">await</span>;
         <span class="macro">trace!</span>(<span class="string">"rendering component"</span>);
-        render = new_component.built_component.render().<span class="kw">await</span>;
+        <span class="kw">if </span>is_temporary {
+            render = new_component
+                .built_component
+                .render_if_static()
+                .unwrap_or_default();
+        } <span class="kw">else </span>{
+            render = new_component.built_component.render().<span class="kw">await</span>;
+        }
 
         context_guard = render_context().lock().<span class="kw">await</span>;
         <span class="kw">if </span>context_guard.is_none() {
@@ -688,7 +718,6 @@
         }
 
         context = context_guard.as_mut().unwrap();
-        components_guard = context.components.lock().<span class="kw">await</span>;
 
         context.static_state &amp;= !new_component.built_component.is_dynamic();
 
@@ -700,7 +729,8 @@
         }
 
         <span class="kw">if </span>!context.temporary_render_depth &gt; <span class="number">0 </span>{
-            components_guard
+            context
+                .components
                 .<span class="number">0
                 </span>.insert(context_id.to_string(), new_component.built_component);
         }

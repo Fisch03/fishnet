@@ -45,6 +45,18 @@ impl BuiltComponent {
         }
     }
 
+    pub fn content_cloned(&self) -> Arc<ContentType> {
+        self.content.clone()
+    }
+
+    pub fn render_if_static(&self) -> Option<Markup> {
+        self.content.render_if_static().map(|content| {
+            html! {
+                div class=(self.class_name) { (content) }
+            }
+        })
+    }
+
     pub fn is_dynamic(&self) -> bool {
         match self.content.as_ref() {
             ContentType::Static(_) => false,

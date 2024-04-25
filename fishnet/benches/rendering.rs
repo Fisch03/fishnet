@@ -3,13 +3,18 @@ use fishnet::page::render_context;
 use fishnet::page::{BuiltPage, Page};
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use pprof::criterion::{Output, PProfProfiler};
 
 macro_rules! make_page {
     ($runtime: ident, $body: tt) => {{
         let page = Page::new("bench").with_body(move || async move { $body }.boxed());
 
         let (built, _) = $runtime.block_on(async {
+            render_context::global_store().clear().await;
+
             let built = BuiltPage::new(page, "/").await;
+
+            BuiltPage::render(Extension(built.0.clone())).await;
 
             built
         });
@@ -23,12 +28,10 @@ macro_rules! make_page_side_by_side {
         make_page!($runtime, {
             let mut render = String::new();
 
-            for _ in 0..$amt {
-                render.push_str(
-                    &render_context::render_component(&nanoid::nanoid!(10), || $component)
-                        .await
-                        .0,
-                );
+            for i in 0..$amt {
+                let id = format!("12345678{}", i);
+
+                render.push_str(&render_context::render_component(&id, || $component).await.0);
             }
 
             maud::PreEscaped(render)
@@ -40,25 +43,35 @@ macro_rules! make_page_nested {
         make_page!($runtime, {
             let nested = $component(|| {
                 async move {
-                    c!($component(|| async move {
-                        c!($component(|| {
-                            async move {
-                                c!($component(|| async {
-                                    html! {
-                                        "Hello world!"
-                                    }
+                    let nested = $component(|| {
+                        async move {
+                            let nested = $component(|| {
+                                async move {
+                                    let nested = $component(|| {
+                                        async {
+                                            html! {
+                                                "Hello world!"
+                                            }
+                                        }
+                                        .boxed()
+                                    });
+
+                                    render_context::render_component(&"1234567893", || nested).await
                                 }
-                                .boxed()))
-                            }
-                            .boxed()
-                        }))
-                    }
-                    .boxed()))
+                                .boxed()
+                            });
+
+                            render_context::render_component(&"1234567892", || nested).await
+                        }
+                        .boxed()
+                    });
+
+                    render_context::render_component(&"1234567891", || nested).await
                 }
                 .boxed()
             });
 
-            render_context::render_component(&nanoid::nanoid!(10), || nested).await
+            render_context::render_component(&"1234567890", || nested).await
         })
     }};
 }
@@ -103,14 +116,14 @@ fn bench_render(cr: &mut Criterion) {
         }
     }
 
-    let runtime = tokio::runtime::Builder::new_current_thread()
+    let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_time()
         .build()
         .unwrap();
 
     let mut group = cr.benchmark_group("render side-by-side");
 
-    for i in [1, 100, 250] {
+    for i in [1, 250] {
         let page_basic = make_page_side_by_side!(basic_component(), i, runtime);
         group.bench_with_input(
             BenchmarkId::new("basic", i),
@@ -223,5 +236,9 @@ fn bench_render(cr: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_render);
+criterion_group!(
+    name = benches;
+    config = Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
+    targets = bench_render
+);
 criterion_main!(benches);

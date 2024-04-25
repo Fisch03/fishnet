@@ -48,6 +48,14 @@ impl ContentType {
             ContentType::Static(content) => content.clone(),
         }
     }
+
+    #[inline]
+    pub fn render_if_static(&self) -> Option<Markup> {
+        match self {
+            ContentType::Static(content) => Some(content.clone()),
+            _ => None,
+        }
+    }
 }
 impl std::fmt::Debug for ContentType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
