@@ -3,3 +3,4 @@
 use fishnet_macros::fake_macro;
 fake_macro!(state);
 fake_macro!(state_init);
+fake_macro!(script_external);

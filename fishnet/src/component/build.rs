@@ -114,7 +114,7 @@ where
                 debug!("detected dynamic child, making self dynamic");
                 content = ContentType::Dynamic(StatefulContentRenderer::new(renderer, state));
             } else {
-                content = ContentType::Static(render);
+                content = ContentType::Static(Arc::new(render));
             }
         } else {
             content = ContentType::Dynamic(StatefulContentRenderer::new(renderer, state));

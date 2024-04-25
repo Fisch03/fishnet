@@ -180,6 +180,8 @@ async fn test_component_route_post() {
                 (state.some_val)
             }
         }
+
+        html! {}
     }
 
     let result = testing_component().build("/").await;

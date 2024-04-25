@@ -17,13 +17,16 @@ tower-http = { version = "0.5", features = ["fs", "compression-gzip", "compressi
 fishnet-macros = { path = "../fishnet-macros", version = "0.1"}
 async-trait = "0.1"
 axum-macros = "0.4.1"
+parking_lot = "0.12.1"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["async_tokio" ] }
-pprof = { version = "0.13", features = [ "criterion", "flamegraph" ] }
 pretty_assertions = "1.4"
 unindent = "0.2"
 trybuild = "1"
+
+[target.'cfg(linux)'.dev-dependencies]
+pprof = { version = "0.13", features = [ "criterion", "flamegraph" ] }
 
 [features]
 default = []

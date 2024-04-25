@@ -477,6 +477,7 @@ dependencies = [
  "fishnet-macros",
  "futures",
  "maud",
+ "parking_lot",
  "pprof",
  "pretty_assertions",
  "tokio",

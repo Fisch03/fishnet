@@ -7,33 +7,34 @@ use quote::{quote, ToTokens, TokenStreamExt};
 
 #[derive(Debug)]
 pub struct ParsedComponent {
+    is_pub: bool,
     name: String,
     args: TokenStream,
     is_dyn: bool,
     state: Option<ComponentState>,
     style: Option<ComponentStyle>,
-    script: ComponentScript,
-    render: ComponentRender,
+    script: String,
+    external_scripts: Vec<String>,
+    render: TokenStream,
     routes: Vec<ComponentRoute>,
+    runner: Option<TokenStream>,
 }
 
 impl ParsedComponent {
-    fn new(name: &str, args: TokenStream, is_dyn: bool) -> Self {
+    fn new(name: &str, args: TokenStream, is_dyn: bool, is_pub: bool) -> Self {
         Self {
             name: name.to_string(),
             args,
 
             is_dyn,
+            is_pub,
             state: None,
             style: None,
-            script: ComponentScript {
-                script: String::new(),
-            },
-            render: ComponentRender {
-                code: TokenStream::new(),
-                markup: None,
-            },
+            script: String::new(),
+            external_scripts: Vec::new(),
+            render: TokenStream::new(),
             routes: Vec::new(),
+            runner: None,
         }
     }
 }
@@ -109,43 +110,56 @@ impl ToTokens for ParsedComponent {
             None => TokenStream::new(),
         };
 
-        let script = if self.script.script.is_empty() {
+        let script = if self.script.is_empty() {
             TokenStream::new()
         } else {
-            let script = Literal::string(&self.script.script);
+            let script = Literal::string(&self.script);
             quote! {
                 .add_script(fishnet::js::ScriptType::Inline(#script))
             }
         };
 
-        let markup = match &self.render.markup {
-            Some(markup) => markup.clone(),
+        let external_scripts = self.external_scripts.iter().map(|script| {
+            let script = Literal::string(script);
+            quote! {
+                .add_script(fishnet::js::ScriptType::External(#script.into()))
+            }
+        });
+        let external_scripts = quote! {
+            #(#external_scripts)*
+        };
+
+        let runner = match &self.runner {
+            Some(runner) => quote! {
+                .with_runner(|#state_ident| async move {
+                    #runner
+                }.boxed())
+            },
             None => TokenStream::new(),
         };
-        let code = &self.render.code;
+
+        let code = &self.render;
         let render = match self.is_dyn {
             false => quote! {
                 .render(|#state_ident| async move {
                     #code
-
-                    html! {
-                        #markup
-                    }
                 }.boxed())
             },
             true => quote! {
                 .render_dynamic(|#state_ident| async move {
                     #code
-
-                    html! {
-                        #markup
-                    }
                 }.boxed())
             },
         };
 
+        let pub_ts = if self.is_pub {
+            quote! { pub }
+        } else {
+            TokenStream::new()
+        };
+
         tokens.extend(quote! {
-            fn #name(#fn_args) -> impl BuildableComponent {
+            #pub_ts fn #name(#fn_args) -> impl BuildableComponent {
                 #init_state
 
                 #route_handlers
@@ -155,6 +169,8 @@ impl ToTokens for ParsedComponent {
                     #routes
                     #style
                     #script
+                    #external_scripts
+                    #runner
                     #render
             }
         })
@@ -178,17 +194,6 @@ struct ComponentStyle {
 }
 
 #[derive(Debug)]
-struct ComponentScript {
-    script: String,
-}
-
-#[derive(Debug)]
-struct ComponentRender {
-    code: TokenStream,
-    markup: Option<TokenStream>,
-}
-
-#[derive(Debug)]
 struct ComponentRoute {
     path: String,
     handler_name: Ident,
@@ -200,7 +205,8 @@ struct ComponentRoute {
 enum MacroTypes {
     Style,
     Script,
-    Render,
+    ScriptExternal,
+    Runner,
 }
 
 pub(crate) fn parse(input: TokenStream) -> ParsedComponent {
@@ -250,14 +256,20 @@ impl Parser {
     fn new(input: TokenStream, is_dyn: bool) -> Self {
         let mut input = input.into_iter();
 
-        let next = input.next();
-        match next {
-            Some(TokenTree::Ident(ref ident)) if ident.to_string() == "fn" => {}
-            Some(TokenTree::Ident(ref ident)) if ident.to_string() == "async" => {
-                input.next();
+        let mut is_pub = false;
+        loop {
+            let next = input.next();
+            match next {
+                Some(TokenTree::Ident(ref ident)) if ident.to_string() == "fn" => {
+                    break;
+                }
+                Some(TokenTree::Ident(ref ident)) if ident.to_string() == "pub" => {
+                    is_pub = true;
+                }
+                Some(TokenTree::Ident(ref ident)) if ident.to_string() == "async" => {}
+                Some(token) => abort!(token, "unexpected token"),
+                None => abort_call_site!("expected function definition"),
             }
-            Some(token) => abort!(token, "expected function definition"),
-            None => abort_call_site!("expected function definition"),
         }
 
         let name = match input.next() {
@@ -281,7 +293,7 @@ impl Parser {
 
         Self {
             input: fn_inner.into_iter(),
-            parsed: ParsedComponent::new(&name, fn_args, is_dyn),
+            parsed: ParsedComponent::new(&name, fn_args, is_dyn, is_pub),
             last_ident: None,
         }
     }
@@ -295,7 +307,7 @@ impl Parser {
     }
 
     fn add_to_code(&mut self, code: TokenTree) {
-        self.parsed.render.code.extend(quote!(#code));
+        self.parsed.render.extend(quote!(#code));
     }
 
     fn parse(mut self) -> ParsedComponent {
@@ -305,7 +317,8 @@ impl Parser {
                 Some(TokenTree::Ident(ref ident)) => match ident.to_string().as_str() {
                     "style" => self.parse_macro(MacroTypes::Style),
                     "script" => self.parse_macro(MacroTypes::Script),
-                    "html" => self.parse_macro(MacroTypes::Render),
+                    "script_external" => self.parse_macro(MacroTypes::ScriptExternal),
+                    "runner" => self.parse_macro(MacroTypes::Runner),
                     "let" => {
                         let mut collected = TokenStream::new();
                         collected.append(next.unwrap());
@@ -434,8 +447,9 @@ impl Parser {
 
         match macro_type {
             MacroTypes::Style => self.parse_style(),
-            MacroTypes::Script => self.parse_script(),
-            MacroTypes::Render => self.parse_render(),
+            MacroTypes::Script => self.parse_script(false),
+            MacroTypes::ScriptExternal => self.parse_script(true),
+            MacroTypes::Runner => self.parse_runner(),
         }
     }
 
@@ -519,7 +533,7 @@ impl Parser {
         self.parsed.style = Some(ComponentStyle { style });
     }
 
-    fn parse_script(&mut self) {
+    fn parse_script(&mut self, external: bool) {
         let script;
 
         match self.peek() {
@@ -545,29 +559,28 @@ impl Parser {
             }
         }
 
-        self.parsed.script.script.push_str(&script);
+        if external {
+            self.parsed.external_scripts.push(script);
+        } else {
+            self.parsed.script.push_str(&script);
+        }
     }
 
-    fn parse_render(&mut self) {
-        let render;
+    fn parse_runner(&mut self) {
+        let runner;
 
         match self.peek() {
             Some(TokenTree::Group(ref group)) => {
                 self.advance();
-                render = group.stream();
+                runner = group.stream();
             }
             _ => {
-                emit_error!(self.peek(), "expected html! macro to have a block");
+                emit_error!(self.peek(), "expected runner! macro to have a block");
                 return;
             }
         }
 
-        if self.parsed.render.markup.is_some() {
-            emit_error!(render, "html! macro already used!");
-            return;
-        }
-
-        self.parsed.render.markup = Some(render);
+        self.parsed.runner = Some(runner);
     }
 
     fn parse_route(&mut self, mut inner: IntoIter) {
