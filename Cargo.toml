@@ -10,6 +10,7 @@ exclude = [
 
 resolver = "2"
 
+
 [workspace.package]
 authors = ["Lars Weide"]
 homepage = "https://fisch03.github.io/fishnet"

@@ -1,4 +1,5 @@
 use fishnet::component::prelude::*;
+use fishnet::const_nanoid_arr;
 use fishnet::page::render_context;
 use fishnet::page::{BuiltPage, Page};
 
@@ -6,6 +7,8 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 
 #[cfg(unix)]
 use pprof::criterion::{Output, PProfProfiler};
+
+const_nanoid_arr!(10, 250);
 
 macro_rules! make_page {
     ($runtime: ident, $body: tt) => {{
@@ -31,9 +34,11 @@ macro_rules! make_page_side_by_side {
             let mut render = String::new();
 
             for i in 0..$amt {
-                let id = format!("12345678{}", i);
-
-                render.push_str(&render_context::render_component(&id, || $component).await.0);
+                render.push_str(
+                    &render_context::render_component(NANOID_ARR[i], || $component)
+                        .await
+                        .0,
+                );
             }
 
             maud::PreEscaped(render)
@@ -118,7 +123,7 @@ fn bench_render(cr: &mut Criterion) {
         }
     }
 
-    let runtime = tokio::runtime::Builder::new_multi_thread()
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_time()
         .build()
         .unwrap();

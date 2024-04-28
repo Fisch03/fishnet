@@ -11,7 +11,7 @@ pub enum ScriptType {
     /// an inline script
     Inline(&'static str),
     /// an external script file.
-    External(String),
+    External(&'static str),
 }
 
 /// string representation of a script
@@ -71,4 +71,14 @@ pub async fn minify_script(script: ScriptString) -> ScriptString {
     );
 
     ScriptString(script_out)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_script_string() {
+        let script = super::ScriptString("test".to_string());
+        assert_eq!(script.as_str(), "test");
+        assert_eq!(script.consume(), "test");
+    }
 }

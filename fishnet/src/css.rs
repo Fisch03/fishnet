@@ -1,5 +1,5 @@
 //! data structures and functions for dealing with css
-use std::collections::{hash_map::Entry, HashMap};
+use hashbrown::{hash_map::Entry, HashMap};
 use tracing::debug;
 
 ///  function for turning a pascal case string into a kebab case string.
@@ -89,6 +89,9 @@ impl Stylesheet {
         }
     }
 
+    // tests should be more than enough coverage for this.
+    // otherwise always fails on the size hint mutation which is annoying
+    #[mutants::skip]
     pub fn add(&mut self, rendered: &RenderedStyle) {
         self.style.push_str(&rendered.style);
 

@@ -174,14 +174,18 @@ fn test_at_rule() {
 }
 
 #[test]
-fn test_media_merge() {
+fn test_merge() {
     let style_one = css! {
+        color: blue;
+
         @media screen and (min-width: 400px) {
             color: blue;
         }
     };
 
     let style_two = css! {
+        color: green;
+
         @media screen and (min-width: 400px) {
             color: green;
         }
@@ -195,6 +199,13 @@ fn test_media_merge() {
         stylesheet.render().trim(),
         unindent(
             r"
+        .component-a {
+            color: blue;
+        }
+        .component-b {
+            color: green;
+        }
+
         @media screen and (min-width: 400px) {
             .component-a {
                 color: blue;

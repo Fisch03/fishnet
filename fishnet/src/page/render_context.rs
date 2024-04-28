@@ -15,8 +15,8 @@
 
 use axum::routing::Router;
 use futures::future::BoxFuture;
+use hashbrown::{hash_map::Entry, HashMap, HashSet};
 use maud::{html, Markup};
-use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::sync::{Arc, OnceLock};
 use tokio::sync::{Mutex, OwnedMutexGuard};
 
@@ -41,7 +41,7 @@ pub fn global_store() -> &'static GlobalStore {
 
 #[derive(Debug)]
 #[doc(hidden)]
-pub struct ComponentStore(pub HashMap<String, Arc<BuiltComponent>>);
+pub struct ComponentStore(pub HashMap<&'static str, Arc<BuiltComponent>>);
 
 impl ComponentStore {
     pub(crate) fn new() -> Self {
@@ -190,7 +190,7 @@ pub async fn exit_page() -> RenderResult {
 /// * `lazy_component` - A closure that returns the component to render. It will only be called if the component is not already rendered for the current page.
 // as much as i'd like to instrument this, it actually uses quite a bit of overhead so let's not.
 //#[instrument(name = "c", level = "debug", skip_all)]
-pub async fn render_component<F, C>(context_id: &str, lazy_component: F) -> Markup
+pub async fn render_component<F, C>(context_id: &'static str, lazy_component: F) -> Markup
 where
     F: FnOnce() -> C,
     C: BuildableComponent,
@@ -218,7 +218,7 @@ where
         let context = context_guard.as_mut().unwrap();
 
         is_temporary = context.temporary_render_depth > 0;
-        existing_component = context.components.0.get(&context_id.to_string()).cloned();
+        existing_component = context.components.0.get(context_id).cloned();
         base_route = context.base_route.clone();
     }
 
@@ -268,10 +268,10 @@ where
             }
 
             if !context.temporary_render_depth > 0 {
-                context.components.0.insert(
-                    context_id.to_string(),
-                    Arc::new(new_component.built_component),
-                );
+                context
+                    .components
+                    .0
+                    .insert(context_id, Arc::new(new_component.built_component));
             }
         }
     }
@@ -429,7 +429,7 @@ macro_rules! script {
 ///
 /// ### usage
 /// ```rust
-/// use fishnet::{script, html, Markup};
+/// use fishnet::{script_external, html, Markup};
 /// async fn render_something() -> Markup {
 ///     script_external!("js/my_cool_script.js");
 ///     
@@ -446,7 +446,7 @@ macro_rules! script_external {
         $crate::page::render_context::global_store()
             .add($crate::const_nanoid!(10), || {
                 $crate::page::render_context::GlobalStoreEntry {
-                    scripts: vec![$crate::js::ScriptType::External($js)],
+                    scripts: vec![$crate::js::ScriptType::External($path)],
                     style: None,
                 }
             })

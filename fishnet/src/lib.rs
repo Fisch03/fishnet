@@ -354,7 +354,7 @@ pub use fishnet_macros::component;
 pub use fishnet_macros::dyn_component;
 
 #[doc(hidden)]
-pub use fishnet_macros::const_nanoid;
+pub use fishnet_macros::{const_nanoid, const_nanoid_arr};
 
 /// macro for generating [`Markup`] from html.
 ///

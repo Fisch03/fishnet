@@ -111,6 +111,31 @@ pub fn const_nanoid(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     quote!(#id).into()
 }
 
+#[proc_macro]
+#[proc_macro_error]
+pub fn const_nanoid_arr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input: TokenStream = input.into();
+    let input = input.into_iter().collect::<Vec<_>>();
+
+    let arr = match input.len() {
+        3 => {
+            let len = parse_token_usize(&input[0]);
+            let arr_len = parse_token_usize(&input[2]);
+            let mut out = TokenStream::new();
+            for _ in 0..arr_len {
+                let id = nanoid!(len, &ID_ALPHABET);
+                out.extend(quote!(#id,));
+            }
+
+            quote!(
+             const NANOID_ARR: [&str; #arr_len] = [#out];
+            )
+        }
+        _ => abort!(input[1], "expected two arguments (id length, array length)"),
+    };
+    arr.into()
+}
+
 fn parse_token_usize(token: &TokenTree) -> usize {
     match token {
         TokenTree::Literal(lit) => lit

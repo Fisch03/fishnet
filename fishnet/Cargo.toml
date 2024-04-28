@@ -17,6 +17,8 @@ tower-http = { version = "0.5", features = ["fs", "compression-gzip", "compressi
 fishnet-macros = { path = "../fishnet-macros", version = "0.1"}
 async-trait = "0.1"
 parking_lot = "0.12.1"
+mutants = "0.0.3"
+hashbrown = "0.14.3"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["async_tokio" ] }

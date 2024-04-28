@@ -3,8 +3,8 @@
 use async_trait::async_trait;
 use axum::{http::header, response::IntoResponse, routing::get, Extension, Router};
 use futures::future::{BoxFuture, FutureExt};
+use hashbrown::HashSet;
 use maud::{html, Markup, DOCTYPE};
-use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, debug_span, instrument, Instrument};

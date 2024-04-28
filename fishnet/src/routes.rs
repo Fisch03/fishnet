@@ -7,7 +7,7 @@ use axum::{
 };
 use tower_service::Service;
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 

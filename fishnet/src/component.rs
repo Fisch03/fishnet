@@ -22,7 +22,7 @@ use axum::{
 use core::convert::Infallible;
 use futures::future::BoxFuture;
 use maud::Markup;
-use std::{fmt::Debug, marker::PhantomData, ops::Deref};
+use std::{fmt::Debug, marker::PhantomData, ops::Deref, sync::Arc};
 use tower_service::Service;
 
 #[derive(Debug, Clone)]
@@ -68,8 +68,8 @@ pub struct Component<R, S, ST>
 where
     ST: Clone + Send + Sync,
 {
-    name: String,
-    id: String,
+    name: Arc<str>,
+    id: Arc<str>,
     is_dynamic: bool,
 
     renderer: Option<ContentRenderer<ST>>,
@@ -89,8 +89,8 @@ where
 impl Component<NoRenderer, NoState, ()> {
     pub fn new(name: &str, id: &str) -> Component<NoRenderer, NoState, ()> {
         Self {
-            name: name.to_string(),
-            id: id.to_string(),
+            name: Arc::from(name),
+            id: Arc::from(id),
 
             is_dynamic: false,
 

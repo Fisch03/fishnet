@@ -15,10 +15,10 @@ use crate::page::render_context;
 #[derive(Debug, Clone)]
 pub struct BuiltComponent {
     #[allow(dead_code)]
-    name: String,
-    id: String,
+    name: Arc<str>,
+    id: Arc<str>,
 
-    class_name: String,
+    class_name: Arc<str>,
 
     content: Arc<ContentType>,
 }
@@ -133,7 +133,7 @@ where
             built_component: BuiltComponent {
                 name: self.name,
                 id: self.id,
-                class_name,
+                class_name: class_name.into(),
                 content: Arc::new(content),
             },
             runner,

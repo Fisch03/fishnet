@@ -1,11 +1,11 @@
 extern crate fishnet_macros;
 use fishnet::component::prelude::*;
-use fishnet::page::render_context::global_store;
+use fishnet::page::render_context;
 use fishnet_macros::{component, css};
 use std::sync::Arc;
 
 #[cfg(test)]
-use pretty_assertions::assert_eq;
+use pretty_assertions::{assert_eq, assert_ne};
 
 #[test]
 fn test_ui() {
@@ -16,6 +16,36 @@ fn test_ui() {
 #[derive(Default)]
 struct TestComponentState {
     some_val: usize,
+}
+
+#[tokio::test]
+async fn test_component_id_name() {
+    #[component]
+    async fn testing_component_one() {
+        html! {}
+    }
+
+    #[component]
+    async fn testing_component_two() {
+        html! {}
+    }
+
+    let component_one = testing_component_one();
+    let component_two = testing_component_two();
+
+    assert_eq!(component_one.name(), "TestingComponentOne");
+    assert_eq!(component_two.name(), "TestingComponentTwo");
+    assert_ne!(component_one.id(), component_two.id());
+
+    let result_one = component_one.build("/").await;
+    let result_two = component_two.build("/").await;
+
+    assert_eq!(result_one.built_component.name(), "TestingComponentOne");
+    assert_eq!(result_two.built_component.name(), "TestingComponentTwo");
+    assert_ne!(
+        result_one.built_component.id(),
+        result_two.built_component.id()
+    );
 }
 
 #[tokio::test]
@@ -52,12 +82,14 @@ async fn test_component() {
 
     assert!(result.runner.is_none());
     assert!(result.router.is_none());
+    assert!(!result.built_component.is_dynamic());
 
-    let component_entry = global_store()
+    let component_entry = render_context::global_store()
         .get(result.built_component.id())
-        .await
-        .unwrap();
+        .await;
+    assert!(component_entry.is_some());
 
+    let component_entry = component_entry.unwrap();
     assert_eq!(component_entry.scripts.len(), 1);
     match &component_entry.scripts[0] {
         fishnet::js::ScriptType::Inline(script) => {
@@ -136,12 +168,20 @@ async fn test_component_staticity() {
     }
 
     let result = testing_component().build("/").await;
+    assert!(!result.built_component.is_dynamic());
 
     let render = result.built_component.render().await;
     assert_eq!(render.0, "<div class=\"testing-component\">1</div>");
 
     let render = result.built_component.render().await;
     assert_eq!(render.0, "<div class=\"testing-component\">1</div>");
+
+    let render = result.built_component.render_if_static();
+    assert!(render.is_some());
+    assert_eq!(
+        render.unwrap().0,
+        "<div class=\"testing-component\">1</div>"
+    );
 }
 
 #[tokio::test]
@@ -159,13 +199,16 @@ async fn test_component_dynamic() {
     }
 
     let result = testing_component().build("/").await;
-    dbg!(&result.built_component);
+    assert!(result.built_component.is_dynamic());
 
     let render = result.built_component.render().await;
     assert_eq!(render.0, "<div class=\"testing-component\">1</div>");
 
     let render = result.built_component.render().await;
     assert_eq!(render.0, "<div class=\"testing-component\">2</div>");
+
+    let render = result.built_component.render_if_static();
+    assert!(render.is_none());
 }
 
 #[tokio::test]
