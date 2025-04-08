@@ -1,3 +1,5 @@
+## archived - superseded by [neoprene]https://github.com/Fisch03/neoprene
+
 # fishnet
 born from my growing hate for most modern web frameworks (and the modern web in general), fishnet is my take on combining old with new: 
 a highly performant component based web framework for building quick and open (both for you and the end user) websites.
